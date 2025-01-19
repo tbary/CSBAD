@@ -58,7 +58,6 @@ def uniform_stream_based(
             sampling_rate = sampling_rate + 0.05
     return output_list[:n], flag
 
-
 def thresholding_least_confidence(
     image_labels_path: str,
     n: int = DEFAULT_SUB_SAMPLE,
@@ -243,9 +242,7 @@ def thresholding_top_confidence(
             flag=-1
             print(f"Budget {int(n)} is not met with sampling_rate = {sampling_rate:.2f}. Only {len(images_to_label)} images selected.")
         sampling_rate = sampling_rate + 0.05
-
     return images_to_label, flag
-
 
 def strategy_n_first(
     image_folder_path: str,

@@ -95,7 +95,7 @@ The code was developed under Linux 20.04.
 We recommend working in a virtualenv or conda environment.
 
 ```bash
-conda create -y --name CSBAD python pip
+conda create -y --name CSBAD python=3.11 pip
 conda activate CSBAD
 ```
 ### Requirements
@@ -120,31 +120,33 @@ wandb login
 
 ## Datasets <a name="datasets"></a>
 
-Required dataset structure :
+<!--Required dataset structure :-->
 
-![Dataset Structure](images/traill22_dataset_structure.svg)
+<!--![Dataset Structure](images/trail22_dataset_structure.svg)-->
 
-Modifications to this structure are permissible but require appropriate configuration adjustments.
+<!--Modifications to this structure are permissible but require appropriate configuration adjustments.-->
 
 Ensure your dataset adheres to the following structure:
 
+```
 Dataset
 ├── cam{1}
 │   ├── week{1}
 │   │   └── bank
-│   │   │   ├── images
-│   │   │   └── labels_${STUDENT-MODEL}_w_conf 
-        |   └── labels_${TEACHER-MODEL} 
-|   |   └── test
-│   │       ├── images
-│   │       └── labels
-.   .
-│   └── week{i}
-│       └── ...
-.
+│   │       ├── images
+│   |       ├── labels_${STUDENT-MODEL}_w_conf 
+... ...     └── labels_${TEACHER-MODEL} 
+|   |
+│   ├── week{i}
+│   |   └── ...
+|   └── test
+│       ├── images
+│       └── labels
 └── cam{j}
     └── ...
 ```
+
+Modifications to this structure are permissible but require appropriate configuration adjustments.
 
 ## 3. Getting Started <a name="getting-started"></a>
 

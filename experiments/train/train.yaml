@@ -2,5 +2,6 @@ cam_week_pairs: ${cam_week_pairs}
 base_folder: "${data_root_folder}"
 labels_folder: "${dataset.label_path}"
 strategy: "${strategy}"
+teacher_strategy: "${teacher_strategy}"
 teacher : "${teacher}"
 student : "${student}"

@@ -3,7 +3,7 @@ import glob
 import argparse
 from tqdm import tqdm
 import torch
-from ultralytics import YOLO
+from ultralytics import YOLO #type: ignore
 
 YOLO_MODELS = ['yolov8n', 'yolov8x6', 'yolov8s', 'yolov8l', 'yolov8m',
                'yolo11n', 'yolo11x', 'yolo11s', 'yolo11l', 'yolo11m']

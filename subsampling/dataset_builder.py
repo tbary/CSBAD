@@ -1,6 +1,6 @@
 import os
 from multiprocessing import Pool
-from hydra.utils import call
+from hydra.utils import call # type: ignore
 from .utils import list_files_without_extensions
 from .utils import find_file_extension
 from logging import warning
@@ -48,7 +48,6 @@ def build_val_folder(cam_week_pairs, base_folder, labels_folder, val_set_size=30
         )
     return val_folder
 
-
 def build_train_folder(config):
     assert len(config.cam_week_pairs) > 0, "At least one camera-week pair should be specified"
     
@@ -69,15 +68,18 @@ def build_train_folder(config):
         extension=find_file_extension(image_folder)
         config.strategy.imgExtension=extension
         subsample_names, flag = call(config.strategy)
+        config.teacher_strategy.client_subsample_names = subsample_names
+        filtered_subsample_names = call(config.teacher_strategy)
         if flag==-1:
             config.strategy.name =  'AlphaAdjusted-' +config.strategy.name 
 
         parallel_copy(
-            subsample_names,
+            filtered_subsample_names,
             bank_folder,
             "train",
             imgExtension=extension,
             labelsFolder=labels_folder)
+        raise RuntimeError("End of debugging zone ! If you see this error, remove exception line 82 (dataset_builder.py)")
     return "train"
 
 def copy_file(args):

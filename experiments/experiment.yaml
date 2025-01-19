@@ -3,7 +3,8 @@ defaults:
   # change for the dataset name you want to use
   # either WALT or AI-city
   - dataset: WALT
-  - strategy: uniform-random    
+  - strategy: thresh-top-confidence 
+  - teacher_strategy: oracle-top-mAP50-95
   - val: val            # no changes here
   - train: train        # no changes here
   - model: yolov8       # no changes here
@@ -11,17 +12,18 @@ defaults:
 
 
 # For WALT dataset
-data_root_folder: "/home/dani/data/WALT-challenge" # your path root folder
+data_root_folder: "F:\\data\\WALT-challenge" # your path root folder
 
 # WANDB
-entity: "trail22kd" #TO CHANGE for your WANDB entity
-project: "SBAD"     #TO CHANGE for your WANDB project
+entity: "tbary" #TO CHANGE for your WANDB entity
+project: "YOLOv8"     #TO CHANGE for your WANDB project
 
 #Distillation Scheme
 teacher: 'yolov8x6'
-student: 'yolo8n'
+student: 'yolov8n'
 
 n_samples: 25
+n_samples_teacher: 15
 
 training_mode: "normal" # ALTERNATIVES ["normal", "cst_maturity"]
 N_streams: null # TO BE INPUT IF training_mode == cst_maturity 

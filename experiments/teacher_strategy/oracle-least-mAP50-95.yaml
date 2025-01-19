@@ -1,0 +1,8 @@
+_target_: subsampling.teacher_strategies.teacher_least_mAP50_95_oracle
+
+client_subsample_names: null # Filled by student strategy
+teacher_image_label_path: "${dataset.bank_path}/labels_${teacher}_w_conf"
+student_image_label_path: "${dataset.bank_path}/labels_${student}_w_conf"
+
+n: ${n_samples_teacher}
+name: "oracle-least-mAP50-95_${n_samples_teacher}"
