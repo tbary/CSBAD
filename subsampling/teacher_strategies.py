@@ -108,6 +108,11 @@ def teacher_top_mAP50_95_oracle(
     n: int = DEFAULT_SUB_SAMPLE,
     **kwargs,
 ) -> list:
+    if len(client_subsample_names) < n:
+        raise SamplingException("The teacher can only select at most all the images sent by the student.")
+    elif len(client_subsample_names) == n:
+        return client_subsample_names
+    
     student_files = [os.path.join(student_image_label_path, subsample_name + ".txt") for subsample_name in client_subsample_names]
     teacher_files = [os.path.join(teacher_image_label_path, subsample_name + ".txt") for subsample_name in client_subsample_names]
     imgs_mAP_50_95 = np.array(compute_map50_95(student_files, teacher_files))
@@ -124,6 +129,11 @@ def teacher_least_mAP50_95_oracle(
     n: int = DEFAULT_SUB_SAMPLE,
     **kwargs,
 ) -> list:
+    if len(client_subsample_names) < n:
+        raise SamplingException("The teacher can only select at most all the images sent by the student.")
+    elif len(client_subsample_names) == n:
+        return client_subsample_names
+
     student_files = [os.path.join(student_image_label_path, subsample_name + ".txt") for subsample_name in client_subsample_names]
     teacher_files = [os.path.join(teacher_image_label_path, subsample_name + ".txt") for subsample_name in client_subsample_names]
     imgs_mAP_50_95 = np.array(compute_map50_95(student_files, teacher_files))
