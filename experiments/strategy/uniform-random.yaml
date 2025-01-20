@@ -6,4 +6,4 @@ imgExtension: null #To be filled
 n: ${n_samples}
 sampling_rate: 0.10
 seed: ${seed}
-name: "uniform-random-${seed}_stream-based_${n_samples}"
+name: "uniform-random-${seed}"
