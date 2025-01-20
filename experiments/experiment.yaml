@@ -4,7 +4,7 @@ defaults:
   # either WALT or AI-city
   - dataset: WALT
   - strategy: thresh-top-confidence 
-  - teacher_strategy: oracle-top-mAP50-95
+  - teacher_strategy: oracle-least-mAP50-95
   - val: val            # no changes here
   - train: train        # no changes here
   - model: yolov8       # no changes here

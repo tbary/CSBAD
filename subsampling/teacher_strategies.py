@@ -113,7 +113,6 @@ def teacher_top_mAP50_95_oracle(
     imgs_mAP_50_95 = np.array(compute_map50_95(student_files, teacher_files))
     
     idx_to_keep = np.sort(np.argsort(-imgs_mAP_50_95)[:n])
-#    print(imgs_mAP_50_95, imgs_mAP_50_95[idx_to_keep])
     filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
 
     return filtered_subsample_names
@@ -127,9 +126,9 @@ def teacher_least_mAP50_95_oracle(
 ) -> list:
     student_files = [os.path.join(student_image_label_path, subsample_name + ".txt") for subsample_name in client_subsample_names]
     teacher_files = [os.path.join(teacher_image_label_path, subsample_name + ".txt") for subsample_name in client_subsample_names]
-    imgs_mAP_50_95 = compute_map50_95(student_files, teacher_files)
+    imgs_mAP_50_95 = np.array(compute_map50_95(student_files, teacher_files))
 
-    idx_to_keep = np.sort(np.argsort(np.array(imgs_mAP_50_95))[:n])
+    idx_to_keep = np.sort(np.argsort(imgs_mAP_50_95)[:n])
     filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
 
     return filtered_subsample_names
