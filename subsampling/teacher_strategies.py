@@ -142,3 +142,30 @@ def teacher_least_mAP50_95_oracle(
     filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
 
     return filtered_subsample_names
+
+def teacher_diversity_from_embeddings(
+    client_subsample_names:list,
+    embeddings_paths:str,
+    n:int = DEFAULT_SUB_SAMPLE,
+    **kwargs
+):
+    if len(client_subsample_names) < n:
+        raise SamplingException("The teacher can only select at most all the images sent by the student.")
+    elif len(client_subsample_names) == n:
+        return client_subsample_names
+
+    embeddings = [torch.load(os.path.join(embeddings_paths, embedding_file + '_embedding.pt'), map_location='cpu') for embedding_file in client_subsample_names]
+    start_idx = select_start_embedding_idx(torch.stack(embeddings))
+
+    idx_to_keep = [start_idx]
+    embeddings_kept = [embeddings.pop(start_idx)]
+
+    for _ in range(n-1):
+        next_index = max_min_cosine_similarity(embeddings, torch.stack(embeddings_kept))
+        idx_to_keep.append(next_index)
+        embeddings_kept.append(embeddings.pop(next_index))
+
+    idx_to_keep = np.sort(idx_to_keep)
+    filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
+
+    return filtered_subsample_names

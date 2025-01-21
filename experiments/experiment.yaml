@@ -4,7 +4,7 @@ defaults:
   # either WALT or AI-city
   - dataset: WALT
   - strategy: thresh-top-confidence 
-  - teacher_strategy: thresh-top-confidence
+  - teacher_strategy: diversity_from_embeddings
   - val: val            # no changes here
   - train: train        # no changes here
   - model: yolov8       # no changes here
@@ -24,6 +24,7 @@ student: 'yolov8n'
 
 n_samples: 25
 n_samples_teacher: 15
+embeddings_dir: "dinov2_embeddings"
 
 training_mode: "normal" # ALTERNATIVES ["normal", "cst_maturity"]
 N_streams: null # TO BE INPUT IF training_mode == cst_maturity 
@@ -33,7 +34,7 @@ cam_week_pairs: null #Filled during launch
 
 seed: 0                            # seed for random strategies
 cam: 1                             # camera number
-week: 1                            # week number
+week: 12345                            # week number
 
 epochs: 100
 

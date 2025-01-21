@@ -87,3 +87,34 @@ def compute_map50_95(pred_files:list, gt_files:list)->list:
         per_image_results.append(results["map"])
 
     return per_image_results
+
+def select_start_embedding_idx(embeddings:torch.tensor)->int:
+    affinity_matrix = torch.matmul(embeddings, embeddings.transpose(0,1))
+    return torch.argmax(torch.sum(affinity_matrix, dim=0))
+
+def max_min_cosine_similarity(array1:list, array2:torch.tensor)->int:
+    """
+    Find the vector in array1 with the maximum minimum cosine similarity 
+    with all vectors in array2.
+    
+    :param array1: numpy.ndarray, shape (n, d)
+                   Array of n vectors of dimension d.
+    :param array2: numpy.ndarray, shape (m, d)
+                   Array of m vectors of dimension d.
+    :return: numpy.ndarray, shape (d,)
+             The vector from array1 with the maximum minimum cosine similarity.
+    """
+    max_min_similarity = -1
+    best_vector_index = -1
+
+    for idx, vector1 in enumerate(array1):
+        # Compute cosine similarities with all vectors in array2
+        cosine_similarities = torch.matmul(array2, vector1)
+        # Find the minimum cosine similarity
+        min_similarity = torch.min(cosine_similarities)
+        # Update if this vector has a higher minimum similarity
+        if min_similarity > max_min_similarity:
+            max_min_similarity = min_similarity
+            best_vector_index = idx
+    
+    return best_vector_index

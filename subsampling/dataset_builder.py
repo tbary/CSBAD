@@ -79,7 +79,8 @@ def build_train_folder(config):
             "train",
             imgExtension=extension,
             labelsFolder=labels_folder)
-        #raise RuntimeError("End of debugging zone ! If you see this error, remove exception line 82 (dataset_builder.py)")
+        #import sys
+        #sys.exit("End of debugging zone ! If you see this, remove line 83 (dataset_builder.py)")
     return "train"
 
 def copy_file(args):
