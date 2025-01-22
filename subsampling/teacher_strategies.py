@@ -172,7 +172,38 @@ def teacher_maximum_entropy(
     client_subsample_names:list,
     teacher_image_label_path:str,
     n: int = DEFAULT_SUB_SAMPLE,
-    aggregation_function: str = "max",
+    aggregation_function: str = "sum",
     **kwargs,     
 )->list:
-    pass
+    if len(client_subsample_names) < n:
+        raise SamplingException("The teacher can only select at most all the images sent by the student.")
+    elif len(client_subsample_names) == n:
+        return client_subsample_names
+
+    entropies = np.empty(len(client_subsample_names))
+    for idx, subsample_name in enumerate(client_subsample_names):
+        with open(os.path.join(teacher_image_label_path, subsample_name + '.txt'), "r") as f:
+            lines = f.readlines()
+            if lines:
+                image_confidences = np.array([float(line.strip().split()[5]) for line in lines])
+                image_entropies = -image_confidences*np.log(image_confidences)
+                # If the file is not empty, compute the image confidence score
+                if aggregation_function == "max":
+                    img_entropy = np.max(image_entropies)
+                elif aggregation_function == "min":
+                    img_entropy = np.min(image_entropies)
+                elif aggregation_function == "mean":
+                    img_entropy = np.mean(image_entropies)
+                elif aggregation_function == "sum":
+                    img_entropy = np.sum(image_entropies)
+                else:
+                    raise SamplingException(
+                        f"You must select a valid aggregation function"
+                    )
+                entropies[idx] = img_entropy
+    
+    idx_to_keep = np.sort(np.argsort(-entropies)[:n])
+    print(np.sort(entropies))
+    filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
+
+    return filtered_subsample_names

@@ -1,0 +1,7 @@
+_target_: subsampling.teacher_strategies.teacher_maximum_entropy
+
+client_subsample_names: null # Filled by student strategy
+teacher_image_label_path: "${dataset.bank_path}/labels_${teacher}_w_conf"
+n: ${n_samples_teacher}
+aggregation_function: "sum"
+name: "student-${strategy.name}-teacher-maximum-entropy-${teacher_strategy.aggregation_function}-received-${n_samples}_stream-based_${n_samples_teacher}"
