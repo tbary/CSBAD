@@ -154,18 +154,25 @@ def teacher_diversity_from_embeddings(
     elif len(client_subsample_names) == n:
         return client_subsample_names
 
-    embeddings = [torch.load(os.path.join(embeddings_paths, embedding_file + '_embedding.pt'), map_location='cpu') for embedding_file in client_subsample_names]
-    start_idx = select_start_embedding_idx(torch.stack(embeddings))
+    embeddings = torch.stack([torch.load(os.path.join(embeddings_paths, embedding_file + '_embedding.pt'), map_location='cpu') for embedding_file in client_subsample_names])
+    embeddings_kept_mask = np.zeros(len(embeddings), dtype=bool)
 
-    idx_to_keep = [start_idx]
-    embeddings_kept = [embeddings.pop(start_idx)]
+    start_idx = select_start_embedding_idx(embeddings)
+    embeddings_kept_mask[start_idx] = True
 
     for _ in range(n-1):
-        next_index = max_min_cosine_similarity(embeddings, torch.stack(embeddings_kept))
-        idx_to_keep.append(next_index)
-        embeddings_kept.append(embeddings.pop(next_index))
+        next_embedding = min_max_absolute_cosine_similarity(embeddings[~embeddings_kept_mask], embeddings[embeddings_kept_mask])
+        embeddings_kept_mask[torch.nonzero(torch.all(embeddings == next_embedding, dim=1)).squeeze()] = True
 
-    idx_to_keep = np.sort(idx_to_keep)
-    filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
+    filtered_subsample_names = list(np.array(client_subsample_names)[embeddings_kept_mask])
 
     return filtered_subsample_names
+
+def teacher_maximum_entropy(
+    client_subsample_names:list,
+    teacher_image_label_path:str,
+    n: int = DEFAULT_SUB_SAMPLE,
+    aggregation_function: str = "max",
+    **kwargs,     
+)->list:
+    pass

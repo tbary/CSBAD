@@ -1,5 +1,6 @@
 import os, os.path
 import torch
+import numpy as np
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 class SamplingException(Exception):
@@ -92,9 +93,9 @@ def select_start_embedding_idx(embeddings:torch.tensor)->int:
     affinity_matrix = torch.matmul(embeddings, embeddings.transpose(0,1))
     return torch.argmax(torch.sum(affinity_matrix, dim=0))
 
-def max_min_cosine_similarity(array1:list, array2:torch.tensor)->int:
+def min_max_absolute_cosine_similarity(candidate_embeddings:torch.tensor, selected_embeddings:torch.tensor)->int:
     """
-    Find the vector in array1 with the maximum minimum cosine similarity 
+    Find the vector in array1 with the minimum maximum absolute pairwise cosine similarity 
     with all vectors in array2.
     
     :param array1: numpy.ndarray, shape (n, d)
@@ -102,19 +103,78 @@ def max_min_cosine_similarity(array1:list, array2:torch.tensor)->int:
     :param array2: numpy.ndarray, shape (m, d)
                    Array of m vectors of dimension d.
     :return: numpy.ndarray, shape (d,)
-             The vector from array1 with the maximum minimum cosine similarity.
+             The vector from array1 with the minimum maximum absolute pairwise cosine similarity.
     """
-    max_min_similarity = -1
-    best_vector_index = -1
+    min_max_abs_similarity = 1.1
+    best_vector = None
 
-    for idx, vector1 in enumerate(array1):
+    for vector in candidate_embeddings:
         # Compute cosine similarities with all vectors in array2
-        cosine_similarities = torch.matmul(array2, vector1)
+        cosine_similarities = torch.matmul(selected_embeddings, vector)
         # Find the minimum cosine similarity
-        min_similarity = torch.min(cosine_similarities)
+        max_abs_similarity = torch.abs(torch.max(cosine_similarities))
+
         # Update if this vector has a higher minimum similarity
-        if min_similarity > max_min_similarity:
-            max_min_similarity = min_similarity
-            best_vector_index = idx
+        if max_abs_similarity < min_max_abs_similarity:
+            min_max_abs_similarity = max_abs_similarity
+            best_vector = vector
+    return best_vector
+
+def pca_with_3d_visualization(data, mask, n_components=3, show=True):
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    """
+    Perform PCA on the given data and plot a 3D scatter plot with a sphere of radius 1.
     
-    return best_vector_index
+    Parameters:
+        data (np.ndarray): Input data array of shape (n_samples, n_features).
+        n_components (int): Number of principal components for dimensionality reduction.
+    """
+    centered_data = data
+
+    # Step 2: Compute the covariance matrix
+    n_samples = data.shape[0]
+    cov_matrix = np.dot(centered_data.T, centered_data) / (n_samples - 1)
+
+    # Step 3: Perform eigen decomposition (or SVD for stability)
+    eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+
+    # Step 4: Select the top n_components eigenvectors (principal components)
+    sorted_indices = np.argsort(eigenvalues)[::-1]  # Sort eigenvalues in descending order
+    top_n_eigenvectors = eigenvectors[:, sorted_indices[:n_components]]  # Shape: (n_features, n_components)
+
+    # Step 5: Project the data onto the top n_components
+    reduced_data = np.dot(centered_data, top_n_eigenvectors)  # Shape: (n_samples, n_components)
+    cluster1 = reduced_data[:,2] < 0
+    cluster2 = reduced_data[:,2] >= 0
+
+    if show:
+        # 3D Scatter Plot Visualization
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Scatter the data points in the 3D space
+        ax.scatter(reduced_data[~mask, 0], reduced_data[~mask, 1], reduced_data[~mask, 2], c='b', marker='o')
+        ax.scatter(reduced_data[mask, 0], reduced_data[mask, 1], reduced_data[mask, 2], c='C1', marker='o')
+
+        # Plot the sphere
+        u = np.linspace(0, 2 * np.pi, 100)  # Azimuthal angle
+        v = np.linspace(0, np.pi, 100)  # Polar angle
+        x = np.outer(np.cos(u), np.sin(v))
+        y = np.outer(np.sin(u), np.sin(v))
+        z = np.outer(np.ones(np.size(u)), np.cos(v))
+
+        # Plot the sphere on the same axis
+        ax.plot_surface(x, y, z, color='r', alpha=0.2)
+
+        # Labels for axes
+        ax.set_xlabel('PC1')
+        ax.set_ylabel('PC2')
+        ax.set_zlabel('PC3')
+
+        # Title for the plot
+        ax.set_title(f'{n_components}-D PCA Visualization with Sphere')
+
+        # Show the plot
+        plt.show()
+    return cluster1, cluster2
