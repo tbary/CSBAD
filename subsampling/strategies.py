@@ -58,6 +58,31 @@ def uniform_stream_based(
             sampling_rate = sampling_rate + 0.05
     return output_list[:n], flag
 
+def interval_sampling(
+    image_labels_path: str,
+    n: int = DEFAULT_SUB_SAMPLE,
+    **kwargs,
+)->list:
+    if n <= 0:
+        raise SamplingException(
+            f"You must select a strictly positive number of frames to select"
+        )
+
+    path_list = [
+        os.path.splitext(filename)[0] for filename in os.listdir(image_labels_path)
+    ]
+    if n > len(path_list):
+        raise SamplingException(
+            f"Image bank contains {len(path_list)} frames, but {n} frames where required for the "
+            f"interval sampling strategy !"
+        )
+
+    step = (len(path_list) - 1) // (n - 1)
+    indices = [i * step for i in range(n - 1)]
+    indices.append(len(path_list) - 1)  # Include the last element
+
+    return [path_list[i] for i in indices], 0
+
 def thresholding_least_confidence(
     image_labels_path: str,
     n: int = DEFAULT_SUB_SAMPLE,
