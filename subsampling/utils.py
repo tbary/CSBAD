@@ -93,9 +93,9 @@ def select_start_embedding_idx(embeddings:torch.tensor)->int:
     affinity_matrix = torch.matmul(embeddings, embeddings.transpose(0,1))
     return torch.argmax(torch.sum(affinity_matrix, dim=0))
 
-def min_max_absolute_cosine_similarity(candidate_embeddings:torch.tensor, selected_embeddings:torch.tensor)->int:
+def min_max_cosine_similarity(candidate_embeddings:torch.tensor, selected_embeddings:torch.tensor)->int:
     """
-    Find the vector in array1 with the minimum maximum absolute pairwise cosine similarity 
+    Find the vector in array1 with the minimum maximum pairwise cosine similarity 
     with all vectors in array2.
     
     :param array1: numpy.ndarray, shape (n, d)
@@ -103,20 +103,20 @@ def min_max_absolute_cosine_similarity(candidate_embeddings:torch.tensor, select
     :param array2: numpy.ndarray, shape (m, d)
                    Array of m vectors of dimension d.
     :return: numpy.ndarray, shape (d,)
-             The vector from array1 with the minimum maximum absolute pairwise cosine similarity.
+             The vector from array1 with the minimum maximum pairwise cosine similarity.
     """
-    min_max_abs_similarity = 1.1
+    min_max_similarity = 1.1
     best_vector = None
 
     for vector in candidate_embeddings:
         # Compute cosine similarities with all vectors in array2
         cosine_similarities = torch.matmul(selected_embeddings, vector)
         # Find the minimum cosine similarity
-        max_abs_similarity = torch.abs(torch.max(cosine_similarities))
+        max_similarity = torch.max(cosine_similarities)
 
         # Update if this vector has a higher minimum similarity
-        if max_abs_similarity < min_max_abs_similarity:
-            min_max_abs_similarity = max_abs_similarity
+        if max_similarity < min_max_similarity:
+            min_max_similarity = max_similarity
             best_vector = vector
     return best_vector
 
