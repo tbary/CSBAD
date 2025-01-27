@@ -3,7 +3,7 @@ defaults:
   # change for the dataset name you want to use
   # either WALT or AI-city
   - dataset: WALT
-  - strategy: interval-sampling 
+  - strategy: diversity-from-embeddings
   - teacher_strategy: diversity_from_embeddings
   - val: val            # no changes here
   - train: train        # no changes here

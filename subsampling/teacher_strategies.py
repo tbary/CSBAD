@@ -203,7 +203,7 @@ def teacher_maximum_entropy(
                 entropies[idx] = img_entropy
     
     idx_to_keep = np.sort(np.argsort(-entropies)[:n])
-    print(np.sort(entropies))
+
     filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
 
     return filtered_subsample_names

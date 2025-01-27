@@ -1,0 +1,10 @@
+_target_: subsampling.strategies.diversity_from_embeddings
+
+image_folder_path: "${dataset.image_path}"
+image_labels_path: "${dataset.bank_path}/labels_${student}_w_conf"
+embeddings_paths: "${dataset.bank_path}/${embeddings_dir}"
+imgExtension: null #To be filled
+val_size: ${val.val_set_size}
+n: ${n_samples}
+
+name: "diversity-from-embeddings"
