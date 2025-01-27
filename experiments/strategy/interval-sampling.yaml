@@ -6,4 +6,4 @@ imgExtension: null #To be filled
 val_size: ${val.val_set_size}
 n: ${n_samples}
 
-name: "interval_sampling"
+name: "interval-sampling"
