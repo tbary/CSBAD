@@ -46,7 +46,7 @@ def train(config):
     # generate train folder
     train_folder = build_train_folder(config.train)
 
-    config.model.name= config.model.name +'_' + config.train.strategy.name
+    config.model.name= config.model.name + '_' + config.train.strategy.name
     
     # update data files
     update_config_file(config)
