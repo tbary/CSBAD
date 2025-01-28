@@ -72,12 +72,12 @@ def build_train_folder(config):
         if(config.strategy.n>config.teacher_strategy.n):
             config.teacher_strategy.client_subsample_names = subsample_names
             subsample_names = call(config.teacher_strategy)
+            
             config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-' + str(config.teacher_strategy.name) + '-received-'+ str(config.strategy.n) +'_stream-based_' + str(config.teacher_strategy.n)
         else:
              config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-none' + '_stream-based_' + str(config.teacher_strategy.n)
         #if flag==-1:
          #   config.strategy.name =  'AlphaAdjusted-' +config.strategy.name 
-        print('\n strategy name', config.strategy.name)
         parallel_copy(
             subsample_names,
             bank_folder,
