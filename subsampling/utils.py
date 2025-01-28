@@ -91,11 +91,11 @@ def compute_map50_95(pred_files:list, gt_files:list)->list:
 
 def select_start_embedding_idx(embeddings:torch.tensor)->int:
     affinity_matrix = torch.matmul(embeddings, embeddings.transpose(0,1))
-    return torch.argmax(torch.sum(affinity_matrix, dim=0))
+    return int(np.argmax(torch.sum(affinity_matrix, dim=0)))
 
-def min_max_absolute_cosine_similarity(candidate_embeddings:torch.tensor, selected_embeddings:torch.tensor)->int:
+def min_max_cosine_similarity(candidate_embeddings:torch.tensor, selected_embeddings:torch.tensor)->torch.tensor:
     """
-    Find the vector in array1 with the minimum maximum absolute pairwise cosine similarity 
+    Find the vector in array1 with the minimum maximum pairwise cosine similarity 
     with all vectors in array2.
     
     :param array1: numpy.ndarray, shape (n, d)
@@ -103,26 +103,27 @@ def min_max_absolute_cosine_similarity(candidate_embeddings:torch.tensor, select
     :param array2: numpy.ndarray, shape (m, d)
                    Array of m vectors of dimension d.
     :return: numpy.ndarray, shape (d,)
-             The vector from array1 with the minimum maximum absolute pairwise cosine similarity.
+             The vector from array1 with the minimum maximum pairwise cosine similarity.
     """
-    min_max_abs_similarity = 1.1
+    min_max_similarity = 1.1
     best_vector = None
 
     for vector in candidate_embeddings:
         # Compute cosine similarities with all vectors in array2
         cosine_similarities = torch.matmul(selected_embeddings, vector)
         # Find the minimum cosine similarity
-        max_abs_similarity = torch.abs(torch.max(cosine_similarities))
+        max_similarity = torch.max(cosine_similarities)
 
         # Update if this vector has a higher minimum similarity
-        if max_abs_similarity < min_max_abs_similarity:
-            min_max_abs_similarity = max_abs_similarity
+        if max_similarity < min_max_similarity:
+            min_max_similarity = max_similarity
             best_vector = vector
     return best_vector
 
 def pca_with_3d_visualization(data, mask, n_components=3, show=True):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
+    from scipy.linalg import svd
     """
     Perform PCA on the given data and plot a 3D scatter plot with a sphere of radius 1.
     
@@ -130,21 +131,22 @@ def pca_with_3d_visualization(data, mask, n_components=3, show=True):
         data (np.ndarray): Input data array of shape (n_samples, n_features).
         n_components (int): Number of principal components for dimensionality reduction.
     """
-    centered_data = data
 
-    # Step 2: Compute the covariance matrix
-    n_samples = data.shape[0]
-    cov_matrix = np.dot(centered_data.T, centered_data) / (n_samples - 1)
-
-    # Step 3: Perform eigen decomposition (or SVD for stability)
-    eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
-
-    # Step 4: Select the top n_components eigenvectors (principal components)
-    sorted_indices = np.argsort(eigenvalues)[::-1]  # Sort eigenvalues in descending order
-    top_n_eigenvectors = eigenvectors[:, sorted_indices[:n_components]]  # Shape: (n_features, n_components)
+    mean_direction = torch.mean(data, axis=0)
+    mean_direction /= np.linalg.norm(mean_direction)  # Normalize the mean direction
+    
+    # Center the data around the mean direction
+    centered_data = data - np.outer(np.dot(data, mean_direction), mean_direction)
+    centered_data /= np.linalg.norm(centered_data, axis=1, keepdims=True)  # Re-normalize
+    
+    # Perform SVD on the centered data
+    U, S, Vt = svd(centered_data, full_matrices=False)
+    
+    # Select the top principal components
+    components = Vt[:n_components]
 
     # Step 5: Project the data onto the top n_components
-    reduced_data = np.dot(centered_data, top_n_eigenvectors)  # Shape: (n_samples, n_components)
+    reduced_data = np.dot(data, components.T)  # Shape: (n_samples, n_components)
     cluster1 = reduced_data[:,2] < 0
     cluster2 = reduced_data[:,2] >= 0
 
@@ -154,10 +156,10 @@ def pca_with_3d_visualization(data, mask, n_components=3, show=True):
         ax = fig.add_subplot(111, projection='3d')
 
         # Scatter the data points in the 3D space
-        ax.scatter(reduced_data[~mask, 0], reduced_data[~mask, 1], reduced_data[~mask, 2], c='b', marker='o')
-        ax.scatter(reduced_data[mask, 0], reduced_data[mask, 1], reduced_data[mask, 2], c='C1', marker='o')
+        ax.scatter(reduced_data[~mask, 0], reduced_data[~mask, 1], reduced_data[~mask, 2], c='b', marker='o', alpha=0.05)
+        ax.scatter(reduced_data[mask, 0], reduced_data[mask, 1], reduced_data[mask, 2], c='C1', marker='o', alpha = 0.9)
 
-        # Plot the sphere
+        """# Plot the sphere
         u = np.linspace(0, 2 * np.pi, 100)  # Azimuthal angle
         v = np.linspace(0, np.pi, 100)  # Polar angle
         x = np.outer(np.cos(u), np.sin(v))
@@ -165,7 +167,7 @@ def pca_with_3d_visualization(data, mask, n_components=3, show=True):
         z = np.outer(np.ones(np.size(u)), np.cos(v))
 
         # Plot the sphere on the same axis
-        ax.plot_surface(x, y, z, color='r', alpha=0.2)
+        ax.plot_surface(x, y, z, color='r', alpha=0.2)"""
 
         # Labels for axes
         ax.set_xlabel('PC1')

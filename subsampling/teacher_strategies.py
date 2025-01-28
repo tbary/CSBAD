@@ -161,7 +161,7 @@ def teacher_diversity_from_embeddings(
     embeddings_kept_mask[start_idx] = True
 
     for _ in range(n-1):
-        next_embedding = min_max_absolute_cosine_similarity(embeddings[~embeddings_kept_mask], embeddings[embeddings_kept_mask])
+        next_embedding = min_max_cosine_similarity(embeddings[~embeddings_kept_mask], embeddings[embeddings_kept_mask])
         embeddings_kept_mask[torch.nonzero(torch.all(embeddings == next_embedding, dim=1)).squeeze()] = True
 
     filtered_subsample_names = list(np.array(client_subsample_names)[embeddings_kept_mask])
@@ -203,7 +203,7 @@ def teacher_maximum_entropy(
                 entropies[idx] = img_entropy
     
     idx_to_keep = np.sort(np.argsort(-entropies)[:n])
-    print(np.sort(entropies))
+
     filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
 
     return filtered_subsample_names

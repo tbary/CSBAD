@@ -58,6 +58,31 @@ def uniform_stream_based(
             sampling_rate = sampling_rate + 0.05
     return output_list[:n], flag
 
+def interval_sampling(
+    image_labels_path: str,
+    n: int = DEFAULT_SUB_SAMPLE,
+    **kwargs,
+)->list:
+    if n <= 0:
+        raise SamplingException(
+            f"You must select a strictly positive number of frames to select"
+        )
+
+    path_list = [
+        os.path.splitext(filename)[0] for filename in os.listdir(image_labels_path)
+    ]
+    if n > len(path_list):
+        raise SamplingException(
+            f"Image bank contains {len(path_list)} frames, but {n} frames where required for the "
+            f"interval sampling strategy !"
+        )
+
+    step = (len(path_list) - 1) / (n - 1)
+    indices = [int(i * step) for i in range(n - 1)]
+    indices.append(len(path_list) - 1)  # Include the last element
+
+    return [path_list[i] for i in indices], 0
+
 def thresholding_least_confidence(
     image_labels_path: str,
     n: int = DEFAULT_SUB_SAMPLE,
@@ -269,3 +294,48 @@ def strategy_n_first(
     path_list.sort()
     output_list = path_list[:n]
     return output_list,flag
+
+def diversity_from_embeddings(
+    image_labels_path: str,
+    embeddings_paths:str,
+    n: int = DEFAULT_SUB_SAMPLE,
+    **kwargs,
+):
+    if n <= 0:
+        raise SamplingException(f"You must select a strictly positive number of frames to select")
+    
+    txt_files = [filename for filename in os.listdir(image_labels_path)]
+    embeddings = torch.stack([torch.load(os.path.join(embeddings_paths, os.path.splitext(txt_file)[0] + '_embedding.pt'), map_location='cpu') for txt_file in txt_files])
+    kept_embedding_mask = np.ones(len(txt_files), dtype=bool)
+
+    for idx, txt_file in enumerate(txt_files):
+        with open(os.path.join(image_labels_path, txt_file), "r") as f:
+            lines = f.readlines()
+            if not lines:
+                kept_embedding_mask[idx] = False
+
+    if n > np.sum(kept_embedding_mask):
+        raise SamplingException(
+            f"Image bank contains {np.sum(kept_embedding_mask)} valid frames, but {n} frames where required for the "
+            f"diversity strategy !"
+        )
+    
+    embeddings = embeddings[kept_embedding_mask][:8052]
+    m = len(embeddings)
+    batch_size = m // n
+    batched_embeddings = torch.split(embeddings, batch_size)
+
+    first_batch = batched_embeddings[0]
+    selected_idx = [select_start_embedding_idx(first_batch)]
+    selected_embeddings = [first_batch[selected_idx[0]]]
+
+    for batch_idx in range(1, n):
+        batch = batched_embeddings[batch_idx]
+        sel_embedding = min_max_cosine_similarity(batch, torch.stack(selected_embeddings))
+        sel_embedding_batch_idx = np.arange(len(batch))[torch.nonzero(torch.all(batch == sel_embedding, dim=1)).squeeze()]
+        selected_idx.append(sel_embedding_batch_idx + batch_idx * len(batch))
+        selected_embeddings.append(sel_embedding)
+    
+    selected_images = [os.path.splitext(txt_files[int(i)])[0] for i in selected_idx]
+
+    return selected_images, 0
