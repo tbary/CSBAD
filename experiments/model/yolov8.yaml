@@ -1,5 +1,5 @@
 weights: "${project_dir}/models/${student}.pt"
-name: "${dataset.name}_${student}_${teacher}_${teacher_strategy.name}"
+name: "${dataset.name}_${student}_${teacher}"
 entity: "tbary" #TO CHANGE for your WANDB entity
 project: "YOLOv8" #TO CHANGE for your WANDB project
 epochs: ${epochs}

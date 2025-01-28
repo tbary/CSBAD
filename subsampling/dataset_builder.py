@@ -68,13 +68,18 @@ def build_train_folder(config):
         extension=find_file_extension(image_folder)
         config.strategy.imgExtension=extension
         subsample_names, flag = call(config.strategy)
-        config.teacher_strategy.client_subsample_names = subsample_names
-        filtered_subsample_names = call(config.teacher_strategy)
-        if flag==-1:
-            config.strategy.name =  'AlphaAdjusted-' +config.strategy.name 
 
+        if(config.strategy.n>config.teacher_strategy.n):
+            config.teacher_strategy.client_subsample_names = subsample_names
+            subsample_names = call(config.teacher_strategy)
+            config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-' + str(config.teacher_strategy.name) + '-received-'+ str(config.strategy.n) +'_stream-based_' + str(config.teacher_strategy.n)
+        else:
+             config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-none' + '_stream-based_' + str(config.teacher_strategy.n)
+        #if flag==-1:
+         #   config.strategy.name =  'AlphaAdjusted-' +config.strategy.name 
+        print('\n strategy name', config.strategy.name)
         parallel_copy(
-            filtered_subsample_names,
+            subsample_names,
             bank_folder,
             "train",
             imgExtension=extension,

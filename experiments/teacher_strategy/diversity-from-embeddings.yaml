@@ -4,4 +4,4 @@ client_subsample_names: null # Filled by student strategy
 embeddings_paths: "${dataset.bank_path}/${embeddings_dir}"
 
 n: ${n_samples_teacher}
-name: "student-${strategy.name}-teacher-diversity-from-embeddings-received-${n_samples}_stream-based_${n_samples_teacher}"
+name: "diversity-from-embeddings-${embeddings_dir}"

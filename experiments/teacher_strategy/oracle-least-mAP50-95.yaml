@@ -5,4 +5,4 @@ teacher_image_label_path: "${dataset.bank_path}/labels_${teacher}_w_conf"
 student_image_label_path: "${dataset.bank_path}/labels_${student}_w_conf"
 
 n: ${n_samples_teacher}
-name: "student-${strategy.name}-teacher-oracle-least-mAP50-95-received-${n_samples}_stream-based_${n_samples_teacher}"
+name: "oracle-least-mAP50-95"
