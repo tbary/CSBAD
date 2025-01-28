@@ -7,4 +7,4 @@ imgExtension: null #To be filled
 val_size: ${val.val_set_size}
 n: ${n_samples}
 
-name: "diversity-from-embeddings"
+name: "diversity-from-embeddings-${embeddings_dir}"
