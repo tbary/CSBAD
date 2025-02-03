@@ -6,6 +6,7 @@ import torch
 import shutil
 import random
 import numpy as np
+import warnings
 
 from subsampling.dataset_builder import build_val_folder, build_train_folder
 
@@ -30,10 +31,17 @@ def train(config):
             config.model.epochs = int(config.model.epochs*config.N_streams/n_cameras)
             config.epochs=config.model.epochs
         else:
-            raise ValueError("For constant maturity study, 'N_streams' (total streams) is required.")
+            raise ValueError("For constant maturity study, 'N_streams' (total streams) is required.")  
 
-
-        
+    elif(config.training_mode=="cst_iterations"):
+        n_epochs_corrected = config.iterations//config.n_samples_teacher
+        print(f"Mode: const iterations, base_epoch: {config.model.epochs}, number of samples: {config.n_samples_teacher}, number of iterations: {config.iterations}, new epoch: {n_epochs_corrected}")
+        if n_epochs_corrected != config.iterations/config.n_samples_teacher:
+            warnings.warn(
+                f"Number of iterations {config.iterations} is not a multiple of the number of samples {config.n_samples_teacher}. Number of epochs rounded down from {config.iterations/config.n_samples_teacher} to {n_epochs_corrected}..."
+            )
+        config.model.epochs = n_epochs_corrected
+        config.epochs=config.model.epochs
 
     # Set the default device for tensors
     torch.cuda.set_device(device)
@@ -47,7 +55,7 @@ def train(config):
     train_folder = build_train_folder(config.train)
 
     config.model.name= config.model.name + '_' + config.train.strategy.name
-    
+  
     # update data files
     update_config_file(config)
 

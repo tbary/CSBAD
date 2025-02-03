@@ -26,7 +26,7 @@ n_samples: 256
 n_samples_teacher: 64
 embeddings_dir: "dinov2S"
 
-training_mode: "normal" # ALTERNATIVES ["normal", "cst_maturity"]
+training_mode: "normal" # ALTERNATIVES ["normal", "cst_maturity", "cst_iterations"]
 N_streams: null # TO BE INPUT IF training_mode == cst_maturity 
 
 cam_week_pairs: null #Filled during launch
@@ -37,6 +37,7 @@ cam: 1                             # camera number
 week: 12345                            # week number
 
 epochs: 100
+iterations: 6400                   # To modify only if training_mode=="cst_iterations"
 
 # no changes here
 project_dir: "${hydra:runtime.cwd}"
