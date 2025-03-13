@@ -4,6 +4,33 @@ import os
 
 DEFAULT_SUB_SAMPLE = 300
 
+def teacher_random(
+    client_subsample_names:list,
+    n: int = DEFAULT_SUB_SAMPLE,
+    seed: int = 42,
+    **kwargs,
+) -> list:
+    """
+    :param image_folder_path: path to the bank image folder
+    :param n: number of frames to select
+    :return output_list: a list containing the selected images path
+    """
+ 
+    if n <= 0:
+        raise SamplingException(
+            f"You must select a strictly positive number of frames to select"
+        )
+    if n > len(client_subsample_names):
+        raise SamplingException(
+            f"Image bank contains {len(client_subsample_names)} frames, but {n} frames where required for the "
+            f"random strategy !"
+        )
+    client_subsample_names.sort()
+    rng = np.random.default_rng(seed)
+    output_list = rng.choice(client_subsample_names, n, replace=False)
+    output_list.sort()
+    return output_list
+ 
 def teacher_thresholding_top_confidence(
     client_subsample_names:list,
     teacher_image_label_path:str,

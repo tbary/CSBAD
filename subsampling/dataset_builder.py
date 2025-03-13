@@ -6,15 +6,15 @@ from .utils import find_file_extension
 from logging import warning
 import shutil
 import glob
-
+ 
 class SamplingException(Exception):
     pass
-
+ 
 def build_val_folder(cam_week_pairs, base_folder, labels_folder, val_set_size=300, teacher="yolo11"):
     assert len(cam_week_pairs) > 0, "At least one camera-week pair should be specified"
     val_samples_per_cam = val_set_size// len(cam_week_pairs)
     
-
+ 
     outfolder = os.getcwd()
     if not os.path.exists(f"{outfolder}/val"):
         os.makedirs(f"{outfolder}/val")
@@ -22,7 +22,7 @@ def build_val_folder(cam_week_pairs, base_folder, labels_folder, val_set_size=30
         os.makedirs(f"{outfolder}/val/images")
     if not os.path.exists(f"{outfolder}/val/labels"):
         os.makedirs(f"{outfolder}/val/labels")
-
+ 
     val_folder = outfolder + "/val/"
     
     files = glob.glob(f"{val_folder}/*/*")
@@ -34,8 +34,8 @@ def build_val_folder(cam_week_pairs, base_folder, labels_folder, val_set_size=30
     for pair in cam_week_pairs:
         cam, week = pair['cam'], pair['week']
         print(f"Starting copy validation set for cam {cam} and week {week}")
-
-
+ 
+ 
         bank_folder = os.path.join(base_folder, f"cam{cam}", f"week{week}", "bank")
         labels_folder = os.path.join(bank_folder, f"labels_{teacher}")
         validation_set, extension = list_files_without_extensions(bank_folder + "/images")
@@ -47,7 +47,7 @@ def build_val_folder(cam_week_pairs, base_folder, labels_folder, val_set_size=30
             labelsFolder=labels_folder,
         )
     return val_folder
-
+ 
 def build_train_folder(config):
     assert len(config.cam_week_pairs) > 0, "At least one camera-week pair should be specified"
     
@@ -68,16 +68,19 @@ def build_train_folder(config):
         extension=find_file_extension(image_folder)
         config.strategy.imgExtension=extension
         subsample_names, flag = call(config.strategy)
-
-        if(config.strategy.n>config.teacher_strategy.n):
-            config.teacher_strategy.client_subsample_names = subsample_names
-            subsample_names = call(config.teacher_strategy)
-            
-            config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-' + str(config.teacher_strategy.name) + '-received-'+ str(config.strategy.n) +'_stream-based_' + str(config.teacher_strategy.n)
+ 
+        if(config.teacher_strategy.n != 0):
+            if(config.strategy.n>config.teacher_strategy.n):
+                config.teacher_strategy.client_subsample_names = subsample_names
+                subsample_names = call(config.teacher_strategy)
+                config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-' + str(config.teacher_strategy.name) + '-received-'+ str(config.strategy.n) +'_stream-based_' + str(config.teacher_strategy.n)
+            else:
+                config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-none' + '_stream-based_' + str(config.teacher_strategy.n)
         else:
-             config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-none' + '_stream-based_' + str(config.teacher_strategy.n)
+            config.strategy.name= 'student-' + str(config.strategy.name) + '-teacher-none' + '_stream-based_' + str(config.strategy.n)
+ 
         #if flag==-1:
-         #   config.strategy.name =  'AlphaAdjusted-' +config.strategy.name 
+         #   config.strategy.name =  'AlphaAdjusted-' +config.strategy.name
         parallel_copy(
             subsample_names,
             bank_folder,
@@ -87,11 +90,11 @@ def build_train_folder(config):
         #import sys
         #sys.exit("End of debugging zone ! If you see this, remove line 83 (dataset_builder.py)")
     return "train"
-
+ 
 def copy_file(args):
     src, dst = args
     shutil.copy(src, dst)
-
+ 
 def parallel_copy(index, in_folder, out_folder, imgExtension, labelsFolder):
     """
     :param index: an array of the name of the images that are selected ('e.g. ['frame_0001','frame_0020'])
@@ -102,7 +105,7 @@ def parallel_copy(index, in_folder, out_folder, imgExtension, labelsFolder):
     """
     images = os.listdir(os.path.join(in_folder, "images")) # Source of the bank images
     labels = os.listdir(os.path.join(in_folder, labelsFolder)) # Source of the bank of labels
-
+ 
     
     print(f"Copying {len(index)} images from", os.path.join(in_folder, "images"), f"containing {len(images)} images and from labels folder ", os.path.join(in_folder, labelsFolder),f"contaning {len(labels)} labels")
     
