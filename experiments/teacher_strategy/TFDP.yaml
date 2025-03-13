@@ -1,0 +1,7 @@
+_target_: subsampling.teacher_strategies.teacher_TFDP
+
+client_subsample_names: null # Filled by student strategy
+student_image_label_path: "${dataset.bank_path}/labels_${student}_w_conf"
+
+n: ${n_samples_teacher}
+name: "TFDP"

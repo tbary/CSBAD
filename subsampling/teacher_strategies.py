@@ -16,7 +16,7 @@ def teacher_thresholding_top_confidence(
     elif len(client_subsample_names) == n:
         return client_subsample_names
 
-    confidences = np.empty(len(client_subsample_names))
+    confidences = np.zeros(len(client_subsample_names))
     for idx, subsample_name in enumerate(client_subsample_names):
         with open(os.path.join(teacher_image_label_path, subsample_name + '.txt'), "r") as f:
             lines = f.readlines()
@@ -65,7 +65,7 @@ def teacher_thresholding_least_confidence(
     elif len(client_subsample_names) == n:
         return client_subsample_names
     
-    confidences = np.empty(len(client_subsample_names))
+    confidences = np.zeros(len(client_subsample_names))
     for idx, subsample_name in enumerate(client_subsample_names):
         with open(os.path.join(teacher_image_label_path, subsample_name + '.txt'), "r") as f:
             lines = f.readlines()
@@ -168,6 +168,69 @@ def teacher_diversity_from_embeddings(
 
     return filtered_subsample_names
 
+def teacher_moderate_coreset(
+    client_subsample_names:list,
+    embeddings_paths:str,
+    n:int = DEFAULT_SUB_SAMPLE,
+    **kwargs
+):  
+    if len(client_subsample_names) < n:
+        raise SamplingException("The teacher can only select at most all the images sent by the student.")
+    elif len(client_subsample_names) == n:
+        return client_subsample_names
+
+    embeddings = torch.stack([torch.load(os.path.join(embeddings_paths, embedding_file + '_embedding.pt'), map_location='cpu') for embedding_file in client_subsample_names])
+    embeddings_center = embeddings.mean(dim=0)
+
+    distances_to_center = torch.norm(embeddings - embeddings_center, dim=1)
+
+    median_distance = torch.median(distances_to_center)
+
+    diffs_to_median = torch.abs(distances_to_center - median_distance)
+    
+    # Get indices of the n smallest absolute differences
+    _, min_indices = torch.topk(-diffs_to_median, n)  # Negative for smallest values
+
+    # Create binary mask
+    mask = torch.zeros_like(distances_to_center, dtype=torch.bool)
+    mask[min_indices] = True
+
+    filtered_subsample_names = list(np.array(client_subsample_names)[mask])
+
+    return filtered_subsample_names
+
+def teacher_TFDP(
+    client_subsample_names:list,
+    student_image_label_path:str,
+    n: int = DEFAULT_SUB_SAMPLE,
+    **kwargs,
+) -> list:
+    if len(client_subsample_names) < n:
+        raise SamplingException("The teacher can only select at most all the images sent by the student.")
+    elif len(client_subsample_names) == n:
+        return client_subsample_names
+
+    scores = np.zeros(len(client_subsample_names))
+    for idx, subsample_name in enumerate(client_subsample_names):
+        with open(os.path.join(student_image_label_path, subsample_name + '.txt'), "r") as f:
+            lines = f.readlines()
+
+        if lines:
+            # Vectorized calculation for boxes_shapes, boxes_perimeters, and boxes_areas
+            boxes_shapes = np.array([list(map(float, line.strip().split()[3:5])) for line in lines])
+            widths, heights = boxes_shapes[:, 0], boxes_shapes[:, 1]
+            boxes_areas = widths * heights
+            boxes_perimeters = 2 * (widths + heights)
+            
+            # Using vectorized operations to calculate the score
+            score = 2 * np.sqrt(np.pi) * np.sum(boxes_perimeters / np.sqrt(boxes_areas))
+            scores[idx] = score
+    
+    idx_to_keep = np.sort(np.argsort(-scores)[:n])
+    filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
+
+    return filtered_subsample_names
+
 def teacher_maximum_entropy(
     client_subsample_names:list,
     teacher_image_label_path:str,
@@ -180,7 +243,7 @@ def teacher_maximum_entropy(
     elif len(client_subsample_names) == n:
         return client_subsample_names
 
-    entropies = np.empty(len(client_subsample_names))
+    entropies = np.zeros(len(client_subsample_names))
     for idx, subsample_name in enumerate(client_subsample_names):
         with open(os.path.join(teacher_image_label_path, subsample_name + '.txt'), "r") as f:
             lines = f.readlines()
