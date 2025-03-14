@@ -1,0 +1,9 @@
+_target_: subsampling.teacher_strategies.teacher_random
+
+client_subsample_names: null # Filled by student strategy
+image_folder_path: "${dataset.image_path}"
+image_labels_path: "${dataset.bank_path}/labels_${student}_w_conf"
+imgExtension: null #To be filled
+n: ${n_samples_teacher}
+seed: ${seed}
+name: "random-${seed}"
