@@ -332,7 +332,7 @@ def diversity_from_embeddings(
     for batch_idx in range(1, n):
         batch = batched_embeddings[batch_idx]
         sel_embedding = min_max_cosine_similarity(batch, torch.stack(selected_embeddings))
-        sel_embedding_batch_idx = np.arange(len(batch))[torch.nonzero(torch.all(batch == sel_embedding, dim=1)).squeeze()]
+        sel_embedding_batch_idx = np.arange(len(batch))[torch.nonzero(torch.all(batch == sel_embedding, dim=1))[0]]
         selected_idx.append(sel_embedding_batch_idx + batch_idx * len(batch))
         selected_embeddings.append(sel_embedding)
     

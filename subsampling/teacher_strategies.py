@@ -189,7 +189,7 @@ def teacher_diversity_from_embeddings(
 
     for _ in range(n-1):
         next_embedding = min_max_cosine_similarity(embeddings[~embeddings_kept_mask], embeddings[embeddings_kept_mask])
-        embeddings_kept_mask[torch.nonzero(torch.all(embeddings == next_embedding, dim=1)).squeeze()] = True
+        embeddings_kept_mask[torch.nonzero(torch.all(embeddings == next_embedding, dim=1))[0]] = True
 
     filtered_subsample_names = list(np.array(client_subsample_names)[embeddings_kept_mask])
 
