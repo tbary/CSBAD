@@ -250,7 +250,7 @@ def teacher_TFDP(
             boxes_perimeters = 2 * (widths + heights)
             
             # Using vectorized operations to calculate the score
-            score = 2 * np.sqrt(np.pi) * np.sum(boxes_perimeters / np.sqrt(boxes_areas))
+            score = np.sum(boxes_perimeters / np.sqrt(boxes_areas)) / (2 * np.sqrt(np.pi))
             scores[idx] = score
     
     idx_to_keep = np.sort(np.argsort(-scores)[:n])
