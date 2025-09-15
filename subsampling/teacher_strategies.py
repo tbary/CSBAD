@@ -184,12 +184,22 @@ def teacher_diversity_from_embeddings(
     embeddings = torch.stack([torch.load(os.path.join(embeddings_paths, embedding_file + '_embedding.pt'), map_location='cpu') for embedding_file in client_subsample_names])
     embeddings_kept_mask = np.zeros(len(embeddings), dtype=bool)
 
+    order = [] #Order of selection
+     
     start_idx = select_start_embedding_idx(embeddings)
     embeddings_kept_mask[start_idx] = True
 
+    order.append(client_subsample_names[start_idx])                    
+
     for _ in range(n-1):
         next_embedding = min_max_cosine_similarity(embeddings[~embeddings_kept_mask], embeddings[embeddings_kept_mask])
-        embeddings_kept_mask[torch.nonzero(torch.all(embeddings == next_embedding, dim=1))[0]] = True
+        next_idx = torch.nonzero(torch.all(embeddings == next_embedding, dim=1))[0]
+        embeddings_kept_mask[next_idx] = True
+        order.append(client_subsample_names[next_idx.item()])
+   
+    cam = embeddings_paths.split('/cam', 1)[1].split('/', 1)[0] if '/cam' in embeddings_paths else None
+    with open(f"./order_cam {cam}_{len(client_subsample_names)}.txt", "w") as f: 
+        f.write("\n".join(f"{name}_embedding.pt" for name in order))
 
     filtered_subsample_names = list(np.array(client_subsample_names)[embeddings_kept_mask])
 

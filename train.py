@@ -15,6 +15,29 @@ from ultralytics import YOLO
 from ultralytics import settings
 settings.update({"wandb": True})
 
+
+import cv2
+import inspect
+from pathlib import Path
+def save_augmented_images(trainer):
+    # Access the current batch from the call stack (post-augmentation)
+    
+    frame = inspect.currentframe().f_back.f_back
+    batch = frame.f_locals["batch"]
+    batch_idx = frame.f_locals.get("i", frame.f_locals.get("batch_i", 0))
+    epoch = trainer.epoch  # current epoch index (0-based)
+    # Create directory for augmented images
+    aug_dir = Path(trainer.save_dir) / "augmented" /f"epoch{epoch}"
+    aug_dir.mkdir(parents=True, exist_ok=True)
+    # Convert images tensor (after all augmentations) to uint8 format
+    imgs = batch["img"].detach().cpu().float()  # shape: (B, 3, H, W), normalized 0-1
+    imgs = (imgs * 255).clamp(0, 255).byte()
+    # Save each image in the batch with a unique filename
+    for j, img in enumerate(imgs):
+        img_np = img.permute(1, 2, 0).contiguous().numpy()  # to HWC uint8
+        cv2.imwrite(str(aug_dir / f"epoch{epoch}_batch{batch_idx}_img{j}.jpg"), img_np[..., ::-1])
+
+
 @hydra.main(version_base=None, config_path="experiments", config_name="experiment")
 def train(config):
     # Check if GPU is available
@@ -63,7 +86,9 @@ def train(config):
     # init model
     model = YOLO(config.model.weights)
 
-   # train model
+    model.add_callback("on_train_batch_end", save_augmented_images)
+
+   #train model
     model.train(
         data="data.yaml",
         epochs=config.model.epochs,
@@ -75,10 +100,10 @@ def train(config):
         pretrained=True,
     )
 
-    # finish the run and remove tmp folders
-    wandb.finish()
-    shutil.rmtree(val_folder, ignore_errors=True)
-    shutil.rmtree(train_folder, ignore_errors=True)
+    # # finish the run and remove tmp folders
+    # wandb.finish()
+    # shutil.rmtree(val_folder, ignore_errors=True)
+    # shutil.rmtree(train_folder, ignore_errors=True)
 
 
 def set_random(seed):

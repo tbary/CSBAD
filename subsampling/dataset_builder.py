@@ -68,6 +68,16 @@ def build_train_folder(config):
         extension=find_file_extension(image_folder)
         config.strategy.imgExtension=extension
         subsample_names, flag = call(config.strategy)
+
+        parallel_copy(
+            subsample_names,
+            in_folder=bank_folder,
+            out_folder="train_unfiltered",
+            imgExtension=extension,
+            labelsFolder=labels_folder,
+            embeddings_dir= config.embeddings_dir)
+        #import sys
+
  
         if(config.teacher_strategy.n != 0):
             if(config.strategy.n>config.teacher_strategy.n):
@@ -83,10 +93,11 @@ def build_train_folder(config):
          #   config.strategy.name =  'AlphaAdjusted-' +config.strategy.name
         parallel_copy(
             subsample_names,
-            bank_folder,
-            "train",
+            in_folder=bank_folder,
+            out_folder="train",
             imgExtension=extension,
-            labelsFolder=labels_folder)
+            labelsFolder=labels_folder,
+            embeddings_dir= config.embeddings_dir)
         #import sys
         #sys.exit("End of debugging zone ! If you see this, remove line 83 (dataset_builder.py)")
     return "train"
@@ -95,7 +106,7 @@ def copy_file(args):
     src, dst = args
     shutil.copy(src, dst)
  
-def parallel_copy(index, in_folder, out_folder, imgExtension, labelsFolder):
+def parallel_copy(index, in_folder, out_folder, imgExtension, labelsFolder, embeddings_dir=None):
     """
     :param index: an array of the name of the images that are selected ('e.g. ['frame_0001','frame_0020'])
     :param in_folder: path to the directory of the source folder containing images and labels subfolders (e.g., "C:/banks")
@@ -105,17 +116,29 @@ def parallel_copy(index, in_folder, out_folder, imgExtension, labelsFolder):
     """
     images = os.listdir(os.path.join(in_folder, "images")) # Source of the bank images
     labels = os.listdir(os.path.join(in_folder, labelsFolder)) # Source of the bank of labels
+    
+   
  
     
     print(f"Copying {len(index)} images from", os.path.join(in_folder, "images"), f"containing {len(images)} images and from labels folder ", os.path.join(in_folder, labelsFolder),f"contaning {len(labels)} labels")
     
     os.makedirs(os.path.join(out_folder, "images"), exist_ok=True) # Create image directory in out_folder if it doesn't exist in out_folder
     os.makedirs(os.path.join(out_folder, "labels"), exist_ok=True) # Create labels directory in out_folder if it doesn't exist in out_folder
- 
+    
+    if embeddings_dir is not None:
+        embeddings = os.listdir(os.path.join(in_folder, embeddings_dir)) # Source of the bank of labels
+        os.makedirs(os.path.join(out_folder, embeddings_dir), exist_ok=True)
+        
     copy_args = []
     for img in index:
         img_with_extension = img + str(".") + imgExtension
         img_with_label = img + ".txt"
+        if embeddings_dir is not None:
+            img_with_pt= img +"_embedding.pt"
+            assert img_with_pt in embeddings, ("Source bank folder does not contain pt with name file - "
+            + img_with_pt
+        )
+
         assert img_with_extension in images, (
             "Source bank folder does not contain image with name file - "
             + img_with_extension
@@ -127,6 +150,9 @@ def parallel_copy(index, in_folder, out_folder, imgExtension, labelsFolder):
                           os.path.join(out_folder, "images", img_with_extension)))
         copy_args.append((os.path.join(in_folder, labelsFolder, img_with_label),
                           os.path.join(out_folder, "labels", img_with_label)))
- 
+
+        if embeddings_dir is not None:
+            copy_args.append((os.path.join(in_folder, embeddings_dir, img_with_pt),
+                              os.path.join(out_folder, embeddings_dir, img_with_pt)))
     with Pool() as pool:
         pool.map(copy_file, copy_args)

@@ -2,7 +2,7 @@ import os
 import argparse
 import torch
 from torchvision import transforms
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import open_clip
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -13,27 +13,41 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser(description="Infer embeddings using ViT models.")
 parser.add_argument("--dataset_path", type=str, required=True, help="Path to the dataset root.")
 parser.add_argument("--model", type=str, required=True, choices=["dinov2", "openclip"], help="Model to use for inference.")
+parser.add_argument("--arch", type=str, required=True, choices=["S", "B", "L"], default = "L", help = "Model architecture.")
 parser.add_argument("--cams", type=str, nargs="*", help="Optional list of cameras to process (e.g., cam1 cam2 cam3).")
 parser.add_argument("--week", type=str, help="Optional specific week to process (e.g., week1, week2).")
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size for inference.")
 args = parser.parse_args()
 
 # Load models and preprocessors
-def load_model_and_preprocessor(model_name):
-    if model_name == "dinov2":
-        model = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14')
+
+
+def load_model_and_preprocessor(args):
+    if args.model == "dinov2":
+        if args.arch == "S":
+            suffix = "vits14"
+        elif args.arch == "B":
+            suffix = "vitb14"
+        elif args.arch == "L":
+            suffix = "vitl14"
+        else:
+            print("{} is not a valid architecture name, exit.".format(args.arch))
+            exit()
+
+        model = torch.hub.load('facebookresearch/dinov2', 'dinov2_{}'.format(suffix))
         preprocessor = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
-    elif model_name == "openclip":
+    elif args.model == "openclip":
         model, _, preprocessor = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
     else:
         raise ValueError("Invalid model name.")
 
     model.eval()
     return model, preprocessor
+
 
 # Custom Dataset class
 class ImageDataset(Dataset):
@@ -48,12 +62,18 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         image_path = self.image_paths[idx]
-        embedding_file = os.path.join(self.embeddings_dir, f"{os.path.splitext(os.path.basename(image_path))[0]}_embedding.pt")
+        embedding_file = os.path.join(self.embeddings_dir,
+                                      f"{os.path.splitext(os.path.basename(image_path))[0]}_embedding.pt")
         if os.path.exists(embedding_file):
             return None
-        image = Image.open(image_path).convert("RGB")
-        tensor = self.preprocessor(image)
-        return tensor, image_path
+        try:
+            image = Image.open(image_path).convert("RGB")
+            tensor = self.preprocessor(image)
+            return tensor, image_path
+        except (UnidentifiedImageError, OSError) as e:
+            print(f"Error loading image {image_path}: {e}")
+            return None
+
 
 # Batch inference function
 def batch_infer_embeddings(model, dataloader, device, model_name):
@@ -77,13 +97,14 @@ def batch_infer_embeddings(model, dataloader, device, model_name):
                 embeddings_dict[path] = embedding
     return embeddings_dict
 
+
 # Main script
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     print(f"Loading model and preprocessor for {args.model}...")
-    model, preprocessor = load_model_and_preprocessor(args.model)
+    model, preprocessor = load_model_and_preprocessor(args)
     model.to(device)
     print(f"Model and preprocessor loaded successfully.")
 
@@ -102,7 +123,7 @@ def main():
                 images_path = os.path.join(week_path, "bank", "images")
                 if os.path.exists(images_path):
                     print(f"  Processing week folder: {week_dir}")
-                    embeddings_dir = os.path.join(week_path, "bank", f"{args.model}_embeddings")
+                    embeddings_dir = os.path.join(week_path, "bank", f"{args.model}{args.arch}")
                     os.makedirs(embeddings_dir, exist_ok=True)
 
                     # Get list of image files
@@ -115,16 +136,18 @@ def main():
 
                     # Create DataLoader
                     dataset = ImageDataset(image_files, preprocessor, embeddings_dir, args.model)
-                    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, collate_fn=lambda x: [i for i in x if i is not None])
+                    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4,
+                                            collate_fn=lambda x: [i for i in x if i is not None])
 
                     # Perform batch inference
                     embeddings_dict = batch_infer_embeddings(model, dataloader, device, args.model)
 
                     # Save embeddings
                     for path, embedding in embeddings_dict.items():
-                        output_file = os.path.join(embeddings_dir, f"{os.path.splitext(os.path.basename(path))[0]}_embedding.pt")
+                        output_file = os.path.join(embeddings_dir,
+                                                   f"{os.path.splitext(os.path.basename(path))[0]}_embedding.pt")
                         torch.save(embedding, output_file)
-                        print(f"      Saved embeddings to {output_file}")
+
 
 if __name__ == "__main__":
     main()
