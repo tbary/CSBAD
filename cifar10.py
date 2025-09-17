@@ -1,21 +1,30 @@
 from pathlib import Path
 import random
 import shutil
+import argparse
 import torch
 from ultralytics import YOLO
 import csv
 import os 
 from subsampling.utils import min_max_cosine_similarity, list_files_without_extensions, select_start_embedding_idx
 import numpy as np
+
+
 # ----------------------------
 
 def sample_first_n(imgs, k):
     """Pick the first k images (after deterministic name sort)."""
     return imgs[:k] if k else imgs                                                                                   
 
+def random(imgs:list, k: int,) -> list:
+    rng = np.random.default_rng(seed=42)
+    output_list = rng.choice(imgs, k, replace=False)
+    return output_list
+
+
 def farthest_first(imgs, k):
-    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/"
-    embeddings = torch.stack([torch.load(os.path.join(embeddings_paths, str(embedding_file).replace("train","augmented_embeddings") + '_embedding.pt'), map_location='cpu') for embedding_file in imgs])
+    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar100/augmented_embeddings"
+    embeddings = torch.stack([torch.load(os.path.join(embeddings_paths, str(embedding_file) + '_embedding.pt'), map_location='cpu') for embedding_file in imgs])
     embeddings_kept_mask = np.zeros(len(embeddings), dtype=bool)
 
     order = [] #Order of selection
@@ -38,9 +47,9 @@ def farthest_first(imgs, k):
     filtered_subsample_names = list(np.array(imgs)[embeddings_kept_mask])
     return filtered_subsample_names
 
-def copy_test_to_val():
-    src = SRC_ROOT / "test"
-    dst = DST_ROOT / "test"   # or use "test" if you prefer DST_ROOT/test
+def copy_test_to_val(src_root, dst_root):
+    src = src_root / "test"
+    dst = dst_root / "test"   # or use "test" if you prefer DST_ROOT/test
     if not src.exists():
         raise FileNotFoundError(f"Missing source test dir: {src}")
     if dst.exists():
@@ -70,24 +79,67 @@ def build_small_dataset(
 
     for cls_dir in sorted([p for p in train_src.iterdir() if p.is_dir()]):
         # deterministic order: sort by filename
-        imgs, _ = cls_dir.name + list_files_without_extensions(cls_dir)
-        keep = sampler(imgs, per_class) if per_class else imgs
+        imgs, _ = list_files_without_extensions(cls_dir)
+        
+        imgs_classy = [os.path.join(str(cls_dir.name), str(p)) for p in imgs]
+        keep = sampler(imgs_classy, per_class) if per_class else imgs
+        
         out_dir = dst_root / Path("train") / cls_dir.name
         out_dir.mkdir(parents=True, exist_ok=True)
-        
+        out_dir = dst_root / Path("train")
         for p in keep:
             shutil.copy2(Path(os.path.join(train_src, str(p) + ".png")), 
                          Path(os.path.join(out_dir , str(p) + ".png")))
 
     print(f"Mini dataset created at: {dst_root.resolve()}")
 
-def train(epochs=1, batch_size = 64):
+
+def unsupervised_build_small_dataset(
+    src_root,
+    dst_root,
+    per_class,
+    sampler=sample_first_n,
+    exts=(".png", ".jpg", ".jpeg"),
+    clear_dst=True,
+):
+    src_root = Path(src_root)
+    dst_root = Path(dst_root)
+
+    if clear_dst and dst_root.exists():
+        shutil.rmtree(dst_root)
+
+    train_src = src_root / Path("train")
+    if not train_src.exists():
+        print(f"[warn] split not found: {train_src} (skipping)")
+
+    stack = []
+    
+    for cls_dir in sorted([p for p in train_src.iterdir() if p.is_dir()]):
+        # deterministic order: sort by filename
+        imgs, _ = list_files_without_extensions(cls_dir)
+        imgs_classy = [os.path.join(str(cls_dir.name), str(p)) for p in imgs]
+        stack = stack + imgs_classy
+        out_dir = dst_root / Path("train") / cls_dir.name
+        out_dir.mkdir(parents=True, exist_ok=True)
+    
+    keep = sampler(stack, per_class)
+    out_dir = dst_root / Path("train")
+    for p in keep:
+        p_class, p_id = p.split("/") # p comes as class/id
+        shutil.copy2(Path(os.path.join(train_src, str(p) + ".png")), 
+                        Path(os.path.join(out_dir , str(p) + ".png")))
+
+    print(f"Mini dataset created at: {dst_root.resolve()}")
+
+
+def train(dataset_name : str, epochs=1, batch_size = 64):
     # pick device
     device = 0 if torch.cuda.is_available() else "cpu"
     model = YOLO("yolo11n-cls.pt")
 
+
     results = model.train(
-        data="cifar10_small",
+        data=dataset_name,
         epochs=epochs,
         imgsz=32,             # CIFAR is 32x32; 64 is fine (will be resized)
         batch= batch_size,
@@ -119,36 +171,52 @@ def write_results_csv(csv_path, dataset, n_samples, filtering_strategy, results_
         w.writerow(row)
 
 
-if __name__ == "__main__":
+def baseline(dataset_name, epochs):
+    results, args = train(dataset_name = dataset_name, epochs = epochs)
+    write_results_csv(csv_path="./results.csv", 
+                      dataset=dataset_name, 
+                      n_samples=-1,               
+                      filtering_strategy="baseline", 
+                      results_dict= results.results_dict)
+
+
+def main(dataset_name, strategy):
 
         # ---------- config ----------
-    SRC_ROOT = Path("./datasets/cifar10")        # dataset with train/val (and optionally test) subfolders
-    DST_ROOT = Path("./datasets/cifar10_small")  # output mini-dataset path
-    PER_CLASS = 1000               # how many images per class to keep
+    pruned_set_name = dataset_name + "_small"
+    SRC_ROOT = Path(f"/export/home/manjah/DSBAD/CSBAD/datasets/{dataset_name}")        # dataset with train/val (and optionally test) subfolders
+    DST_ROOT = Path(f"/export/home/manjah/DSBAD/CSBAD/datasets/{pruned_set_name}")  # output mini-dataset path
+    
+    PER_CLASS = 10000               # how many images per class to keep
     SEED = 42
     EPOCHS = 10 
-    STRATEGY = "farthest_first"
 
-    if STRATEGY == "n_first":
+    if strategy == "n_first":
         sampler = sample_first_n
-    elif STRATEGY == "farthest_first":
+    elif strategy == "farthest_first":
         sampler = farthest_first
+    elif strategy == "random":
+        sampler = random
     else:
-        raise("Error, strategy not found")
-    build_small_dataset(
-    src_root = SRC_ROOT,
-    dst_root = DST_ROOT,
-    per_class=PER_CLASS,
-    sampler=sampler,
-    exts=(".png", ".jpg", ".jpeg"),
-    clear_dst=True,
-    )
-    copy_test_to_val()
-    results, args = train(epochs = EPOCHS)
-    write_results_csv(
-    csv_path="runs/results.csv",
-    dataset="cifar10",
-    n_samples=PER_CLASS,               # or compute this dynamically
-    filtering_strategy=STRATEGY,
-    results_dict= results.results_dict
-)
+        raise("error")
+
+    unsupervised_build_small_dataset(src_root = SRC_ROOT,
+                                     dst_root = DST_ROOT,
+                                     per_class=PER_CLASS,
+                                     sampler=sampler,
+                                     exts=(".png", ".jpg", ".jpeg"),
+                                     clear_dst=True,)
+    copy_test_to_val(SRC_ROOT, DST_ROOT)
+    results, args = train(dataset_name = pruned_set_name , epochs = EPOCHS)
+    write_results_csv(csv_path="./results.csv", dataset=dataset_name, n_samples=PER_CLASS,               
+                      filtering_strategy=strategy, results_dict= results.results_dict)
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+
+    # necessary
+    ap.add_argument("-s", "--strategy", type=str, required=True)
+    ap.add_argument("-d", "--dataset", type=str, required=True)
+    args = ap.parse_args()
+
+    main(args.dataset, args.strategy)
