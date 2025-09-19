@@ -89,11 +89,18 @@ def compute_map50_95(pred_files:list, gt_files:list)->list:
 
     return per_image_results
 
-def select_start_embedding_idx(embeddings:torch.tensor)->int:
+
+def select_start_embedding_idx_old(embeddings : torch.tensor)->int:
     affinity_matrix = torch.matmul(embeddings, embeddings.transpose(0,1))
     return int(np.argmax(torch.sum(affinity_matrix, dim=0)))
 
-def min_max_cosine_similarity(candidate_embeddings:torch.tensor, selected_embeddings:torch.tensor)->torch.tensor:
+def select_start_embedding_idx(embeddings: torch.Tensor) -> int:
+    
+    s = embeddings.sum(dim=0)          # [D]
+    scores = embeddings @ s
+    return  int(torch.argmax(scores).item())
+
+def min_max_cosine_similarity_slow(candidate_embeddings:torch.tensor, selected_embeddings:torch.tensor)->torch.tensor:
     """
     Find the vector in array1 with the minimum maximum pairwise cosine similarity 
     with all vectors in array2.
@@ -119,6 +126,34 @@ def min_max_cosine_similarity(candidate_embeddings:torch.tensor, selected_embedd
             min_max_similarity = max_similarity
             best_vector = vector
     return best_vector
+
+
+def min_max_cosine_similarity(C:torch.tensor, 
+                              S:torch.tensor)->torch.tensor:
+    """
+    Find the vector in array1 with the minimum maximum pairwise cosine similarity 
+    with all vectors in array2.
+    
+    :param array1: Candidate embeddings numpy.ndarray, shape (n, d)
+                   Array of n vectors of dimension d.
+    :param array2: Selected Embeddings numpy.ndarray, shape (m, d)
+                   Array of m vectors of dimension d.
+    :return: numpy.ndarray, shape (d,)
+             The vector from array1 with the minimum maximum pairwise cosine similarity.
+    """
+    sims = S @ C.T 
+
+        # For each candidate, take the max similarity across all selected: [Nc]
+    max_sim_per_candidate = sims.max(dim=0).values
+
+    # Pick the candidate with the minimal of those maxima (first min on ties)
+    best_idx = torch.argmin(max_sim_per_candidate)
+
+    best_vector = C[best_idx]
+    min_max_similarity = max_sim_per_candidate[best_idx]
+    
+    return best_vector
+
 
 def pca_with_3d_visualization(data, mask, n_components=3, show=True):
     import matplotlib.pyplot as plt

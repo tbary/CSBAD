@@ -6,9 +6,10 @@ import torch
 from ultralytics import YOLO
 import csv
 import os 
-from subsampling.utils import min_max_cosine_similarity, list_files_without_extensions, select_start_embedding_idx
+from subsampling.utils import min_max_cosine_similarity, list_files_without_extensions, select_start_embedding_idx, min_max_cosine_similarity_slow, select_start_embedding_idx_old
 import numpy as np
-
+import torch.nn.functional as F 
+import timeit
 
 # ----------------------------
 
@@ -22,30 +23,57 @@ def random(imgs:list, k: int,) -> list:
     return output_list
 
 
+
 def farthest_first(imgs, k):
     embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar100/augmented_embeddings"
-    embeddings = torch.stack([torch.load(os.path.join(embeddings_paths, str(embedding_file) + '_embedding.pt'), map_location='cpu') for embedding_file in imgs])
-    embeddings_kept_mask = np.zeros(len(embeddings), dtype=bool)
 
-    order = [] #Order of selection
-     
-    start_idx = select_start_embedding_idx(embeddings)
-    embeddings_kept_mask[start_idx] = True
+    # Load to device (use "cuda" if available)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    E = torch.stack([
+        torch.load(os.path.join(embeddings_paths, f"{name}_embedding.pt"), map_location='cpu')
+        for name in imgs
+    ]).to(device)                             # [N, d]
 
-    order.append(imgs[start_idx])                    
+    # Normalize once for cosine similarity math
+    En = F.normalize(E, p=2, dim=1)          # [N, d]
 
-    for _ in range(k-1):
-        next_embedding = min_max_cosine_similarity(embeddings[~embeddings_kept_mask], embeddings[embeddings_kept_mask])
-        next_idx = torch.nonzero(torch.all(embeddings == next_embedding, dim=1))[0]
-        embeddings_kept_mask[next_idx] = True
-        order.append(imgs[next_idx.item()])
-   
-    #cam = embeddings_paths.split('/cam', 1)[1].split('/', 1)[0] if '/cam' in embeddings_paths else None
-    #with open(f"./order_cam {cam}_{len(client_subsample_names)}.txt", "w") as f: 
-    #    f.write("\n".join(f"{name}_embedding.pt" for name in order))
+    N = En.size(0)
+    kept = torch.zeros(N, dtype=torch.bool, device=device)
+    order = []
 
-    filtered_subsample_names = list(np.array(imgs)[embeddings_kept_mask])
+    # Choose the first index (be consistent: if selector uses cosine, give it En)
+    start_idx = select_start_embedding_idx(En)  # make sure this returns an int index
+    start_idx = int(start_idx)
+    kept[start_idx] = True
+    order.append(imgs[start_idx])
+
+    # Running max similarity to any selected so far
+    # Initialize with -inf and update once with the first selected
+    max_sim = torch.full((N,), -float('inf'), device=device)
+    sims = En @ En[start_idx]                 # [N]
+    max_sim = torch.maximum(max_sim, sims)
+    max_sim[start_idx] = float('inf')         # exclude the selected one
+
+    # Main loop: each step does ONE matvec + a max + an argmin
+    for _ in range(k - 1):
+        next_idx = int(torch.argmin(max_sim).item())  # smallest max-sim → farthest
+        kept[next_idx] = True
+        order.append(imgs[next_idx])
+
+        # Update running maxima with the newly selected embedding
+        sims = En @ En[next_idx]             # [N]
+        max_sim = torch.maximum(max_sim, sims)
+
+        # Exclude selected indices from future picks
+        max_sim[next_idx] = float('inf')
+
+    # Return the chosen names (preserves the original order of selection if needed)
+    filtered_subsample_names = list(np.array(imgs)[kept.detach().cpu().numpy()])
     return filtered_subsample_names
+
+
+
+
 
 def copy_test_to_val(src_root, dst_root):
     src = src_root / "test"
@@ -180,16 +208,15 @@ def baseline(dataset_name, epochs):
                       results_dict= results.results_dict)
 
 
-def main(dataset_name, strategy):
+def unsupervised_filter(dataset_name, strategy, epochs, n_samples : int):
 
         # ---------- config ----------
     pruned_set_name = dataset_name + "_small"
-    SRC_ROOT = Path(f"/export/home/manjah/DSBAD/CSBAD/datasets/{dataset_name}")        # dataset with train/val (and optionally test) subfolders
-    DST_ROOT = Path(f"/export/home/manjah/DSBAD/CSBAD/datasets/{pruned_set_name}")  # output mini-dataset path
+    SRC_ROOT = Path(f"{os.getcwd()}/datasets/{dataset_name}")        # dataset with train/val (and optionally test) subfolders
+    DST_ROOT = Path(f"{os.getcwd()}/datasets/{pruned_set_name}")  # output mini-dataset path
     
-    PER_CLASS = 10000               # how many images per class to keep
     SEED = 42
-    EPOCHS = 10 
+
 
     if strategy == "n_first":
         sampler = sample_first_n
@@ -202,13 +229,13 @@ def main(dataset_name, strategy):
 
     unsupervised_build_small_dataset(src_root = SRC_ROOT,
                                      dst_root = DST_ROOT,
-                                     per_class=PER_CLASS,
+                                     per_class=n_samples,
                                      sampler=sampler,
                                      exts=(".png", ".jpg", ".jpeg"),
                                      clear_dst=True,)
     copy_test_to_val(SRC_ROOT, DST_ROOT)
-    results, args = train(dataset_name = pruned_set_name , epochs = EPOCHS)
-    write_results_csv(csv_path="./results.csv", dataset=dataset_name, n_samples=PER_CLASS,               
+    results, args = train(dataset_name = pruned_set_name , epochs = epochs)
+    write_results_csv(csv_path="./results.csv", dataset=dataset_name, n_samples=n_samples,      
                       filtering_strategy=strategy, results_dict= results.results_dict)
 
 if __name__ == "__main__":
@@ -217,6 +244,10 @@ if __name__ == "__main__":
     # necessary
     ap.add_argument("-s", "--strategy", type=str, required=True)
     ap.add_argument("-d", "--dataset", type=str, required=True)
+    ap.add_argument("-e", "--epochs",  type=int, default = 10, required=False)
+    ap.add_argument("-n", "--samples",  type=int, default = 1000, required=False)
     args = ap.parse_args()
-
-    main(args.dataset, args.strategy)
+    if args.strategy == "baseline":
+        baseline(args.dataset, args.epochs)
+    else: 
+        unsupervised_filter(args.dataset, args.strategy, args.epochs, args.samples)
