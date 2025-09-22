@@ -8,6 +8,8 @@ import json
 from collections import defaultdict
 from pathlib import Path
 import shutil
+import torch
+import os
 def n_first(imgs, k):
     """Pick the first k images (after deterministic name sort)."""
     return imgs[:k] if k else imgs                                                                                   

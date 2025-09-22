@@ -3,7 +3,7 @@ import argparse
 import torch
 from torchvision import transforms
 from PIL import Image, UnidentifiedImageError
-import open_clip
+#import open_clip
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 

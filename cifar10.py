@@ -5,7 +5,9 @@ import argparse
 import torch
 from coreset.sampling import farthest_first, top_confidence, n_first, random
 from coreset.eval_utils import write_results_csv
+from coreset.visualization_embeddings import plot_two_embedding
 import shutil
+
 def copy_test_to_val(src_root, dst_root):
     src = src_root / "test"
     dst = dst_root / "test"   # or use "test" if you prefer DST_ROOT/test
@@ -55,6 +57,14 @@ def build_coreset(
     print(f"Mini dataset created at: {dst_root.resolve()}")
 
 
+def augmented_file_paths(imgs: list):
+
+    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar10/augmented_embeddings"
+    augmented_path_list = [os.path.join(embeddings_paths,f"{name}_embedding.pt") for name in imgs]
+
+    return augmented_path_list
+
+
 def build_2stage_coreset(
     src_root,
     dst_root,
@@ -79,9 +89,19 @@ def build_2stage_coreset(
         out_dir = dst_root / Path("train") / cls_dir.name
         out_dir.mkdir(parents=True, exist_ok=True)
     
-    print(len(selected_imgs))
+    
+    
+    
     keep = sampler(selected_imgs, per_class)
-    print(len(keep))
+    
+    keep_random = random(selected_imgs, per_class)
+
+    keep_nfirst = n_first(selected_imgs, per_class)
+
+    plot_two_embedding([augmented_file_paths(selected_imgs), 
+                        augmented_file_paths(keep), 
+                                augmented_file_paths(keep_random), augmented_file_paths(keep_nfirst)])
+
     out_dir = dst_root / Path("train")
     for p in keep:
         p_class, p_id = p.split("/") # p comes as class/id
@@ -149,10 +169,10 @@ def unsupervised_filter(dataset_name:str, strategy : str, top_n : int, n_samples
                          exts=(".png", ".jpg", ".jpeg"),
                          clear_dst=True,)
                                      
-    copy_test_to_val(SRC_ROOT, DST_ROOT)
-    results, args = train(dataset_name = pruned_set_name , epochs = epochs)
-    write_results_csv(csv_path="./results.csv", dataset=dataset_name, top_n = top_n, n_samples=n_samples,      
-                      filtering_strategy=strategy, epochs=epochs, results_dict= results.results_dict)
+    #copy_test_to_val(SRC_ROOT, DST_ROOT)
+    #results, args = train(dataset_name = pruned_set_name , epochs = epochs)
+    #write_results_csv(csv_path="./results.csv", dataset=dataset_name, top_n = top_n, n_samples=n_samples,      
+                      #filtering_strategy=strategy, epochs=epochs, results_dict= results.results_dict)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
