@@ -20,8 +20,6 @@ cifar10_classes = [
 dataset="cifar10"
 dataset_path = os.path.join(os.getcwd(),f"datasets/{dataset}/train/")
 
-
-
 scores_res = {}
 
 for cls_name in cifar10_classes:

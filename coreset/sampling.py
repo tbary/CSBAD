@@ -10,6 +10,18 @@ from pathlib import Path
 import shutil
 import torch
 import os
+
+def get_sampler(name):
+    strategies = {"n_first": n_first, 
+                "farthest_first": farthest_first,
+                "random": random}
+    try:
+        print(f"Returning {name} sampler")
+        sampler = strategies[name]
+    except KeyError:
+        raise ValueError(f"Unknown filter strategy: {name}")
+    return sampler
+
 def n_first(imgs, k):
     """Pick the first k images (after deterministic name sort)."""
     return imgs[:k] if k else imgs                                                                                   
