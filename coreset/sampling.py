@@ -11,7 +11,7 @@ import shutil
 import torch
 import os
 from sklearn.cluster import KMeans
-
+import timeit
 
 def get_sampler(name):
     strategies = {"n_first": n_first, 
@@ -105,8 +105,7 @@ def top_confidence(json_path, top_n=1000):
     return top_ids
 
 def farthest_first(imgs, k):
-    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar10/augmented_embeddings"
-
+    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar100/augmented_embeddings"
     # Load to device (use "cuda" if available)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     E = torch.stack([
@@ -151,47 +150,54 @@ def farthest_first(imgs, k):
     filtered_subsample_names = list(np.array(imgs)[kept.detach().cpu().numpy()])
     return filtered_subsample_names
 
+def assses_speed(imgs, k):
+
+    # plug your two callables here (same inputs!)
+    t_old = timeit.timeit(lambda: kmeans_old(imgs, k), number=1)
+    t_new = timeit.timeit(lambda: kmeans_new(imgs, k), number=1)
+
+    print(f"old: {t_old:.3f}s  |  new: {t_new:.3f}s  |  speedup: {t_old/t_new:.2f}×")
+
+    assert_same_set(kmeans_old(imgs, k), kmeans_new(imgs,k))
+    return chosen
+
+def assert_same_set(a, b, label1="A", label2="B"):
+    print(a,b)
+    if set(a) != set(b):
+        only_in_a = set(a) - set(b)
+        only_in_b = set(b) - set(a)
+        raise AssertionError(
+            f"Selections differ as sets. "
+            f"{label1} only: {sorted(only_in_a)} | {label2} only: {sorted(only_in_b)}"
+        )
+
 def kmeans(imgs, k):
-    """
-    Select k representative images using k-means clustering over embeddings.
+    emb_dir = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar100/augmented_embeddings"
+    with torch.no_grad():
+        E = torch.stack([
+            torch.load(os.path.join(emb_dir, f"{n}_embedding.pt"), map_location="cpu")
+            for n in imgs
+        ]).float()
+        En = F.normalize(E, p=2, dim=1).cpu().numpy()
 
-    Args:
-        imgs (list[str]): list of image names (without "_embedding.pt" suffix).
-        k (int): number of representatives to select.
+    km = KMeans(n_clusters=k, n_init=10, random_state=42, algorithm="elkan")
+    labels = km.fit_predict(En)
+    centers = km.cluster_centers_
 
-    Returns:
-        list[str]: selected image names (same format as input).
-    """
-    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar10/augmented_embeddings"
-
-    # Load embeddings
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    E = torch.stack([
-        torch.load(os.path.join(embeddings_paths, f"{name}_embedding.pt"), map_location="cpu")
-        for name in imgs
-    ])  # [N, d]
-    En = F.normalize(E, p=2, dim=1).cpu().numpy()  # sklearn expects numpy
-
-    # Run k-means
-    kmeans = KMeans(n_clusters=k, n_init=10, random_state=42)
-    labels = kmeans.fit_predict(En)
-    centroids = kmeans.cluster_centers_
-
-    # Pick representative per cluster (closest to centroid)
+    diff = En - centers[labels]
+    d2 = np.einsum('ij,ij->i', diff, diff)
     chosen = []
-    for cluster_id in range(k):
-        cluster_idx = np.where(labels == cluster_id)[0]
-        cluster_embeddings = En[cluster_idx]
-
-        # Compute distance to centroid
-        dists = np.linalg.norm(cluster_embeddings - centroids[cluster_id], axis=1)
-        best_idx = cluster_idx[np.argmin(dists)]
-        chosen.append(imgs[best_idx])
-
+    for c in range(k):
+        idx = np.where(labels == c)[0]
+        if idx.size == 0:
+            continue
+        chosen.append(imgs[idx[np.argmin(d2[idx])]])
     return chosen
 
 
-def kmeans_cosine(imgs, k):
+
+
+def kmeans_cosine(imgs, k, **kwargs):
     """
     Select k representative images using spherical (cosine) k-means over embeddings.
 
@@ -202,7 +208,7 @@ def kmeans_cosine(imgs, k):
     Returns:
         list[str]: selected image names (same format as input).
     """
-    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar10/augmented_embeddings"
+    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar100/augmented_embeddings"
 
     # ---- load + unit-normalize so cosine == dot ----
     E = torch.stack([
