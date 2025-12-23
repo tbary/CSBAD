@@ -98,6 +98,23 @@ We recommend working in a virtualenv or conda environment.
 conda create -y --name CSBAD python=3.11 pip
 conda activate CSBAD
 ```
+
+### REPRODUCTUBILITY 
+
+Replace your USER
+```
+mkdir -p /export/home/{USER}/anaconda3/envs/CSBAD/etc/conda/deactivate.d
+nano /export/home/{USER}/anaconda3/envs/CSBAD/etc/conda/deactivate.d/cublas_deterministic.sh
+```
+
+```bash
+#!/bin/bash
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+export PYTHONHASHSEED=0
+```
+
+Every time you run your conda env, it will automatically ship that. 
+
 ### Requirements
 
 To reproduce the results, you need to install the requirements of the YOLOv8 framework AND:
@@ -132,7 +149,7 @@ Ensure your dataset adheres to the following structure:
 Dataset
 ├── cam{1}
 │   ├── week{1}
-│   │   └── bank
+│   │   └── bankc
 │   │       ├── images
 │   |       ├── labels_${STUDENT-MODEL}_w_conf 
 ... ...     └── labels_${TEACHER-MODEL} 
@@ -262,6 +279,7 @@ python testing/plot.py --csv_path ./testdir/WALT/inference_results.csv --save_pa
 ```
 
 Use the `--help` flag for more information on the usage of each script.
+
 
 
 

@@ -1,0 +1,10 @@
+
+ds: cifar10
+select: n_first
+filter: none
+embs: none
+val: val        
+n_1: 500        
+n_2: 300      
+epochs: 20
+mode: train

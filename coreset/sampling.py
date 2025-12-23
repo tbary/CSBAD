@@ -15,27 +15,28 @@ import timeit
 
 def get_sampler(name):
     strategies = {"n_first": n_first, 
-                "farthest_first": farthest_first,
-                "random": random,
-                "kmeans":kmeans,
-                "kmeans_cosine":kmeans_cosine}
+                  "farthest_first": farthest_first,
+                  "top_conf": top_confidence,
+                  "random": random,
+                  "kmeans": kmeans,
+                  "kmeans_cosine":kmeans_cosine}
     try:
         print(f"Returning {name} sampler")
-        sampler = strategies[name]
+        return strategies[name]
     except KeyError:
         raise ValueError(f"Unknown filter strategy: {name}")
-    return sampler
+    
 
-def n_first(imgs, k):
+def n_first(k: int, src_path: str = None, embs_path: str = None, imgs: list = None):
     """Pick the first k images (after deterministic name sort)."""
     return imgs[:k] if k else imgs                                                                                   
 
-def random(imgs:list, k: int,) -> list:
+def random(k: int, src_path: str = None, embs_path: str = None, imgs: list = None) -> list:
     rng = np.random.default_rng(seed=42)
     output_list = rng.choice(imgs, k, replace=False)
     return output_list
 
-def top_confidence_per_class(json_path, top_n=1000):
+def top_confidence_per_class(k: int, src_path: str = None, embs_path: str = None, imgs: list = None):
     """
     Returns a flat list of top-N most confident image paths per class.
     
@@ -77,7 +78,7 @@ def top_confidence_per_class(json_path, top_n=1000):
     return top_class_ids
 
 
-def top_confidence(json_path, top_n=1000):
+def top_confidence(k: int, src_path: str = None, embs_path: str = None, imgs: list = None):
     """
     Returns a flat list of the top-N most confident image paths overall.
 
@@ -88,8 +89,11 @@ def top_confidence(json_path, top_n=1000):
     Returns:
         list: List of image paths (strings).
     """
+
+    conf_path = os.path.join(src_path,"conf_scores.json")
+
     # Load JSON
-    with open(json_path, "r") as f:
+    with open(conf_path, "r") as f:
         data = json.load(f)
 
     # Sort all samples by score, descending
@@ -97,19 +101,20 @@ def top_confidence(json_path, top_n=1000):
 
     # Format paths (cls/file_id style, without extension)
     top_ids = []
-    for path, score in sorted_samples[:top_n]:
+    for path, score in sorted_samples[:k]:
         cls = Path(path).parent.name
         file_id = Path(path).stem
         top_ids.append(f"{cls}/{file_id}")
 
     return top_ids
 
-def farthest_first(imgs, k):
-    embeddings_paths = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar100/augmented_embeddings"
+
+def farthest_first(k: int, src_path: str = None, embs_path: str = None, imgs: list = None):
+
     # Load to device (use "cuda" if available)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     E = torch.stack([
-        torch.load(os.path.join(embeddings_paths, f"{name}_embedding.pt"), map_location='cpu')
+        torch.load(os.path.join(embs_path, f"{name}_embedding.pt"), map_location='cpu')
         for name in imgs
     ]).to(device)                             # [N, d]
 
@@ -150,32 +155,13 @@ def farthest_first(imgs, k):
     filtered_subsample_names = list(np.array(imgs)[kept.detach().cpu().numpy()])
     return filtered_subsample_names
 
-def assses_speed(imgs, k):
 
-    # plug your two callables here (same inputs!)
-    t_old = timeit.timeit(lambda: kmeans_old(imgs, k), number=1)
-    t_new = timeit.timeit(lambda: kmeans_new(imgs, k), number=1)
 
-    print(f"old: {t_old:.3f}s  |  new: {t_new:.3f}s  |  speedup: {t_old/t_new:.2f}×")
-
-    assert_same_set(kmeans_old(imgs, k), kmeans_new(imgs,k))
-    return chosen
-
-def assert_same_set(a, b, label1="A", label2="B"):
-    print(a,b)
-    if set(a) != set(b):
-        only_in_a = set(a) - set(b)
-        only_in_b = set(b) - set(a)
-        raise AssertionError(
-            f"Selections differ as sets. "
-            f"{label1} only: {sorted(only_in_a)} | {label2} only: {sorted(only_in_b)}"
-        )
-
-def kmeans(imgs, k):
-    emb_dir = "/export/home/manjah/DSBAD/CSBAD/datasets/cifar100/augmented_embeddings"
+def kmeans(k: int, src_path: str = None, embs_path: str = None, imgs: list = None):
+   
     with torch.no_grad():
         E = torch.stack([
-            torch.load(os.path.join(emb_dir, f"{n}_embedding.pt"), map_location="cpu")
+            torch.load(os.path.join(embs_path, f"{n}_embedding.pt"), map_location="cpu")
             for n in imgs
         ]).float()
         En = F.normalize(E, p=2, dim=1).cpu().numpy()
@@ -193,9 +179,6 @@ def kmeans(imgs, k):
             continue
         chosen.append(imgs[idx[np.argmin(d2[idx])]])
     return chosen
-
-
-
 
 def kmeans_cosine(imgs, k, **kwargs):
     """
@@ -281,3 +264,25 @@ def kmeans_cosine(imgs, k, **kwargs):
         chosen.append(imgs[best_idx])
 
     return chosen
+
+
+def assses_speed(imgs, k):
+
+    # plug your two callables here (same inputs!)
+    t_old = timeit.timeit(lambda: kmeans_old(imgs, k), number=1)
+    t_new = timeit.timeit(lambda: kmeans_new(imgs, k), number=1)
+
+    print(f"old: {t_old:.3f}s  |  new: {t_new:.3f}s  |  speedup: {t_old/t_new:.2f}×")
+
+    assert_same_set(kmeans_old(imgs, k), kmeans_new(imgs,k))
+    return chosen
+
+def assert_same_set(a, b, label1="A", label2="B"):
+    print(a,b)
+    if set(a) != set(b):
+        only_in_a = set(a) - set(b)
+        only_in_b = set(b) - set(a)
+        raise AssertionError(
+            f"Selections differ as sets. "
+            f"{label1} only: {sorted(only_in_a)} | {label2} only: {sorted(only_in_b)}"
+        )

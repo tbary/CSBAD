@@ -369,9 +369,6 @@ def _plot_convex_hulls_on_ax(hulls, ax, color='k', linewidth=1.5, alpha=0.9, lab
         ax.plot(closed[:, 0], closed[:, 1], '-', color=color, linewidth=linewidth, alpha=alpha, label=lab_out)
         used.add(lab)
 
-
-
-
 def pca_2d(X: np.ndarray):
     X = X.astype(np.float64)
     X -= X.mean(axis=0, keepdims=True)

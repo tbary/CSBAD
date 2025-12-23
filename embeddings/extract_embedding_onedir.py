@@ -1,11 +1,10 @@
 import os
 import argparse
-import torch
-from torchvision import transforms
 from PIL import Image, UnidentifiedImageError
 #import open_clip
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
+import torch
 
 # pip install open_clip_torch
 
@@ -13,37 +12,21 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser(description="Infer embeddings using ViT models.")
 parser.add_argument("--dataset_path", type=str, required=True,
                     help="Path to the input folder containing augmented images (e.g., .../augmented/epoch0).")
-parser.add_argument("--model", type=str, required=True, choices=["dinov2", "openclip"], help="Model to use for inference.")
+parser.add_argument("--model", type=str, required=True, choices=["dinov2", "dinov3", "openclip"], help="Model to use for inference.")
 parser.add_argument("--arch", type=str, required=True, choices=["S", "B", "L"], default="L", help="Model architecture.")
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size for inference.")
 args = parser.parse_args()
 
 # Load models and preprocessors
 def load_model_and_preprocessor(args):
-    if args.model == "dinov2":
-        if args.arch == "S":
-            suffix = "vits14"
-        elif args.arch == "B":
-            suffix = "vitb14"
-        elif args.arch == "L":
-            suffix = "vitl14"
-        else:
-            print("{} is not a valid architecture name, exit.".format(args.arch))
-            exit()
-
-        model = torch.hub.load('facebookresearch/dinov2', 'dinov2_{}'.format(suffix))
-        preprocessor = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
+    if args.model in ["dinov2","dinov3"]:
+        from emb_models import load_dino
+        return load_dino(args)
     elif args.model == "openclip":
-        model, _, preprocessor = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
+        from emb_models import load_openclip
+        return load_openclip(args)
     else:
         raise ValueError("Invalid model name.")
-
-    model.eval()
-    return model, preprocessor
 
 # Custom Dataset class
 class ImageDataset(Dataset):
@@ -82,7 +65,7 @@ def batch_infer_embeddings(model, dataloader, device, model_name):
 
             images, image_paths = zip(*batch)
             images = torch.stack(images).to(device)
-            if model_name == 'dinov2':
+            if model_name in ['dinov2','dinov3']:
                 embeddings = model(images)
             else:  # For OpenCLIP
                 embeddings = model.encode_image(images)
@@ -97,8 +80,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    print(f"Loading model and preprocessor for {args.model}...")
+    print(f"Loading model and preprocessor for {args.model}...") 
     model, preprocessor = load_model_and_preprocessor(args)
+    model.eval()
     model.to(device)
     print(f"Model and preprocessor loaded successfully.")
 
@@ -109,10 +93,10 @@ def main():
         return
 
     # Build output embeddings dir as sibling: .../augmented_embeddings/epochX
-    augmented_dir = os.path.dirname(images_path)            # .../augmented
-    root_dir = os.path.dirname(augmented_dir)               # .../<parent>
-    epoch_name = os.path.basename(images_path)              # epochX
-    embeddings_dir = os.path.join(root_dir, "augmented_embeddings", epoch_name)
+    dst_dir = os.path.dirname(images_path)            
+    root_dir = os.path.dirname(dst_dir)
+    sub_name = os.path.basename(images_path)          #it can be the class, epoch and so on.     
+    embeddings_dir = os.path.join(root_dir, f"{args.model}_{args.arch}_embs", sub_name)
     os.makedirs(embeddings_dir, exist_ok=True)
     print(f"Saving embeddings to: {embeddings_dir}")
 

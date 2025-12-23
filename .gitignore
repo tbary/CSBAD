@@ -167,6 +167,6 @@ multirun/
 outputs/
 testdir/
 wandb/
-
+datasets/
 #weights
 *.pt 
