@@ -1,17 +1,23 @@
 
-# ----------------------------
-
-import torch.nn.functional as F 
-from subsampling.utils import min_max_cosine_similarity, list_files_without_extensions, select_start_embedding_idx, min_max_cosine_similarity_slow, select_start_embedding_idx_old
-import numpy as np
-import json
 from collections import defaultdict
+import json
+import os
 from pathlib import Path
 import shutil
-import torch
-import os
+
+import functools
+import numpy as np
 from sklearn.cluster import KMeans
+import torch
+import torch.nn.functional as F 
 import timeit
+
+from subsampling.utils import (min_max_cosine_similarity, 
+                               list_files_without_extensions, 
+                               select_start_embedding_idx, 
+                               min_max_cosine_similarity_slow, 
+                               select_start_embedding_idx_old)
+
 
 def get_sampler(name):
     strategies = {"n_first": n_first, 
@@ -21,18 +27,22 @@ def get_sampler(name):
                   "kmeans": kmeans,
                   "kmeans_cosine":kmeans_cosine}
     try:
+        if "random" in name:
+            _, sed = name.split("_")
+            return functools.partial(random, seed=int(sed))
         print(f"Returning {name} sampler")
-        return strategies[name]
+        sampler = strategies[name]
     except KeyError:
         raise ValueError(f"Unknown filter strategy: {name}")
+    return sampler
     
 
 def n_first(k: int, src_path: str = None, embs_path: str = None, imgs: list = None):
     """Pick the first k images (after deterministic name sort)."""
     return imgs[:k] if k else imgs                                                                                   
 
-def random(k: int, src_path: str = None, embs_path: str = None, imgs: list = None) -> list:
-    rng = np.random.default_rng(seed=42)
+def random(k: int, src_path: str = None, embs_path: str = None, imgs: list = None, seed = 42) -> list:
+    rng = np.random.default_rng(seed=seed)
     output_list = rng.choice(imgs, k, replace=False)
     return output_list
 

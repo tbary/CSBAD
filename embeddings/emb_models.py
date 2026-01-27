@@ -37,8 +37,6 @@ def load_dino(args):
         model = torch.hub.load("facebookresearch/dinov3", model_name, weights=weights_path)
 
 
-
-
     preprocessor = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),

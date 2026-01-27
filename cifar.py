@@ -20,9 +20,9 @@ from subsampling.utils import list_files_without_extensions
 def mainh(cfg : DictConfig) -> None:
     log(INFO, OmegaConf.to_yaml(cfg))
     if cfg.select == "baseline":
-         baseline(cfg.ds, cfg.epochs)
+         baseline(cfg.ds, cfg.iterations, cfg.epochs, cfg.batch_size, cfg.training_mode)
     else:
-        unsupervised_filter(cfg.ds, cfg.select, cfg.filter, cfg.n_1, cfg.n_2, cfg.embs, cfg.epochs, cfg.mode)
+        unsupervised_filter(cfg.ds, cfg.select, cfg.filter, cfg.n_1, cfg.n_2, cfg.embs, cfg.iterations, cfg.epochs, cfg.batch_size, cfg.training_mode, cfg.mode)
 
 def generate_run_id():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -78,19 +78,28 @@ def train(dataset_name : str, epochs=1, batch_size = 64):
         device=device,
     )
     args = model.trainer.args  # simple object with attributes
-   
     return results, vars(model.trainer.args) 
 
-def baseline(dataset_name, epochs):
-    results, args = train(dataset_name = dataset_name, epochs = epochs)
+def baseline(dataset_name, iterations, epochs, batch_size, training_mode):
+    
+    if training_mode == "cst_iterations":
+        epochs = (iterations * batch_size)/50000
+        log(INFO, "Epochs is adjusted as cst_iterations mode is activated")
+    else:
+        iterations = (epochs * 50000) / batch_size
+        log(INFO, "Normal")
+
+    results, args = train(dataset_name = dataset_name, epochs = epochs, batch_size=batch_size)
     write_results_csv("./results.csv", 
                       dataset_name,
                       n_1 = -1, 
                       n_2 = -1, 
                       select = "baseline",              
                       filter = "baseline", 
-                      epochs = epochs,
                       embs = None,
+                      iterations = iterations,
+                      epochs = epochs,
+                      batch_size = batch_size, 
                       results_dict = results.results_dict)
 
 
@@ -100,15 +109,20 @@ def unsupervised_filter(dataset_name : str,
                         n_1 : int, 
                         n_2 : int, 
                         embs : str,
+                        iterations: int,
                         epochs : int,
-                        mode, 
+                        batch_size : int,
+                        training_mode,
+                        mode,
                         clear_dst = True):
     # ---------- config ----------
+    
     run_set_name = generate_run_id() + "_" + dataset_name + "_subset"
     SRC_ROOT  = Path(f"{os.getcwd()}/datasets/{dataset_name}")  # dataset with train/val (and optionally test) subfolders
     DST_ROOT  = Path(f"{os.getcwd()}/datasets/{run_set_name}")  # output mini-dataset path
     EMBS_PATH = Path(f"{os.getcwd()}/datasets/{dataset_name}/{embs}_embs")
-    print(DST_ROOT)
+    
+    
     train_src = SRC_ROOT / Path("train")
     stack = []
     for cls_dir in sorted([p for p in train_src.iterdir() if p.is_dir()]):
@@ -140,12 +154,30 @@ def unsupervised_filter(dataset_name : str,
                                 embs_files_path(SRC_ROOT, embs, filtered_samples)])
             return
         else:
-            print(filtered_samples)
             build_coreset(SRC_ROOT, DST_ROOT, filtered_samples)
 
-    results, _ = train(dataset_name = DST_ROOT, epochs = epochs)
+    if training_mode == "cst_iterations":
+        epochs = int((iterations * batch_size) / n_2)
+        log(INFO, "Epochs is adjusted as cst_iterations mode is activated")
+    else:
+        iterations = int((epochs * n_2) / batch_size)
+        log(INFO, "Normal")
+        
+    results, _ = train(dataset_name = DST_ROOT, epochs = epochs, batch_size = batch_size)
     
-    write_results_csv("./results.csv", dataset_name, n_1, n_2, select, filter, embs, epochs, results.results_dict)
+  
+    write_results_csv("./results.csv", 
+                      dataset_name, 
+                      n_1,
+                      n_2, 
+                      select, 
+                      filter, 
+                      embs, 
+                      iterations, 
+                      epochs, 
+                      batch_size, 
+                      training_mode, 
+                      results.results_dict)
     
     if clear_dst and DST_ROOT.exists():
         shutil.rmtree(DST_ROOT)

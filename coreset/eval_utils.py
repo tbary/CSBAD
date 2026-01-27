@@ -7,8 +7,11 @@ def write_results_csv(csv_path : str,
                       n_2 : int, 
                       select : str, 
                       filter : str,
-                      embs : str, 
-                      epochs:int, 
+                      embs : str,
+                      iterations: int, 
+                      epochs:int,
+                      batch_size:int, 
+                      training_mode: str, 
                       results_dict):
     """
     csv_path: path to the CSV file
@@ -19,12 +22,12 @@ def write_results_csv(csv_path : str,
     """
     csv_path = Path(csv_path)
     metric_cols = list(results_dict.keys())          # keeps insertion order
-    header = ['dataset', 'n_1', 'n_2', 'select', 'filter', 'embs', 'epochs'] + metric_cols 
+    header = ['dataset', 'n_1', 'n_2', 'select', 'filter', 'embs', 'iterations','epochs','batch_size', 'training_mode'] + metric_cols 
 
     write_header = (not csv_path.exists()) or csv_path.stat().st_size == 0
     with csv_path.open('a', newline='', encoding='utf-8') as f:
         w = csv.writer(f, delimiter='|')
         if write_header:
             w.writerow(header)
-        row = [dataset, n_1, n_2, select, filter, embs, epochs] + [results_dict[k] for k in metric_cols] #+ [config_dict[k] for k in config_dict]
+        row = [dataset, n_1, n_2, select, filter, embs, iterations, epochs, batch_size, training_mode] + [results_dict[k] for k in metric_cols] #+ [config_dict[k] for k in config_dict]
         w.writerow(row)

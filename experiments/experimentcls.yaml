@@ -5,6 +5,9 @@ filter: none
 embs: none
 val: val        
 n_1: 500        
-n_2: 300      
-epochs: 20
+n_2: 384    
+epochs: -1
 mode: train
+batch_size : 16
+iterations: -1
+training_mode: "cst_iterations" # ALTERNATIVES ["normal", "cst_maturity", "cst_iterations"]
