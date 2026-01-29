@@ -13,7 +13,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from coreset.sampling import get_sampler
 from coreset.eval_utils import write_results_csv
-from coreset.visualization_embeddings import plot_two_embedding
+from embeddings.plot.visualization_embeddings import plot_two_embedding
 from subsampling.utils import list_files_without_extensions
 
 @hydra.main(version_base=None, config_path="experiments", config_name="experimentcls")
@@ -90,7 +90,7 @@ def baseline(dataset_name, iterations, epochs, batch_size, training_mode):
         log(INFO, "Normal")
 
     results, args = train(dataset_name = dataset_name, epochs = epochs, batch_size=batch_size)
-    write_results_csv("./results.csv", 
+    write_results_csv(f"./{dataset_name}.csv", 
                       dataset_name,
                       n_1 = -1, 
                       n_2 = -1, 
@@ -100,6 +100,7 @@ def baseline(dataset_name, iterations, epochs, batch_size, training_mode):
                       iterations = iterations,
                       epochs = epochs,
                       batch_size = batch_size, 
+                      training_mode = training_mode,
                       results_dict = results.results_dict)
 
 
@@ -166,7 +167,7 @@ def unsupervised_filter(dataset_name : str,
     results, _ = train(dataset_name = DST_ROOT, epochs = epochs, batch_size = batch_size)
     
   
-    write_results_csv("./results.csv", 
+    write_results_csv(f"./{dataset_name}.csv", 
                       dataset_name, 
                       n_1,
                       n_2, 
