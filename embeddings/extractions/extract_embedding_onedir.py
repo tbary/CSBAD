@@ -20,10 +20,10 @@ args = parser.parse_args()
 # Load models and preprocessors
 def load_model_and_preprocessor(args):
     if args.model in ["dinov2","dinov3"]:
-        from emb_models import load_dino
+        from CSBAD.embeddings.extractions.emb_models import load_dino
         return load_dino(args)
     elif args.model == "openclip":
-        from emb_models import load_openclip
+        from CSBAD.embeddings.extractions.emb_models import load_openclip
         return load_openclip(args)
     else:
         raise ValueError("Invalid model name.")

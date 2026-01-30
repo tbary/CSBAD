@@ -12,11 +12,7 @@ import torch
 import torch.nn.functional as F 
 import timeit
 
-from subsampling.utils import (min_max_cosine_similarity, 
-                               list_files_without_extensions, 
-                               select_start_embedding_idx, 
-                               min_max_cosine_similarity_slow, 
-                               select_start_embedding_idx_old)
+from subsampling.utils import select_start_embedding_idx
 
 
 def get_sampler(name):
