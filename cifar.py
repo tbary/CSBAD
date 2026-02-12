@@ -76,6 +76,7 @@ def train(dataset_name : str, epochs=1, batch_size = 64):
         imgsz=32,             # CIFAR is 32x32;
         batch= batch_size,
         device=device,
+        patience=100
     )
     args = model.trainer.args  # simple object with attributes
     return results, vars(model.trainer.args) 

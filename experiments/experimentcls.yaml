@@ -8,6 +8,6 @@ n_1: 500
 n_2: 384    
 epochs: -1
 mode: train
-batch_size : 16
+batch_size : 32
 iterations: -1
 training_mode: "cst_iterations" # ALTERNATIVES ["normal", "cst_maturity", "cst_iterations"]
