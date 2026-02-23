@@ -8,3 +8,4 @@ torch
 pandas
 torchmetrics
 open_clip_torch
+scikit-learn
