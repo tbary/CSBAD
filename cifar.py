@@ -1,24 +1,45 @@
 
 import os
+os.environ["PYTHONHASHSEED"] = "0"
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 import random
 import shutil
 import string
 from pathlib import Path
 from logging import INFO, log
-
+ 
+import numpy as np
 import torch
 from ultralytics import YOLO
+
 import hydra
 from omegaconf import DictConfig, OmegaConf
+
 
 from coreset.sampling import get_sampler
 from coreset.eval_utils import write_results_csv
 from embeddings.plot.visualization_embeddings import plot_two_embedding
 from subsampling.utils import list_files_without_extensions
 
+
+
+
+def seed_all(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 @hydra.main(version_base=None, config_path="experiments", config_name="experimentcls")
 def mainh(cfg : DictConfig) -> None:
     log(INFO, OmegaConf.to_yaml(cfg))
+    
+    
+    seed_all(0)
     if cfg.select == "baseline":
          baseline(cfg.ds, cfg.iterations, cfg.epochs, cfg.batch_size, cfg.training_mode)
     else:
