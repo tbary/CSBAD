@@ -2,15 +2,17 @@
 import os
 os.environ["PYTHONHASHSEED"] = "0"
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+from logging import INFO, log
 import random
 import shutil
-import string
 from pathlib import Path
-from logging import INFO, log
+import uuid
+
  
 import numpy as np
 import torch
 from ultralytics import YOLO
+
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -46,7 +48,7 @@ def mainh(cfg : DictConfig) -> None:
         unsupervised_filter(cfg.ds, cfg.select, cfg.filter, cfg.n_1, cfg.n_2, cfg.embs, cfg.iterations, cfg.epochs, cfg.batch_size, cfg.training_mode, cfg.mode)
 
 def generate_run_id():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return str(uuid.uuid4())
 
 def embs_files_path(ds_path:str, embs :str,  imgs: list):
     embeddings_paths = os.path.join(ds_path, f"{embs}_embs")
@@ -207,3 +209,6 @@ def unsupervised_filter(dataset_name : str,
 
 if __name__ == "__main__":
     mainh()
+
+
+
