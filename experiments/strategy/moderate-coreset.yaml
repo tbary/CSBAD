@@ -1,0 +1,10 @@
+_target_: subsampling.strategies.student_moderate_coreset
+
+client_subsample_names: null # Filled by student strategy
+embeddings_paths: "${dataset.bank_path}/${embeddings_dir}"
+
+image_folder_path: "${dataset.image_path}"
+image_labels_path: "${dataset.bank_path}/labels_${student}_w_conf"
+n: ${n_samples}
+imgExtension: null #To be filled
+name: "moderate-coreset-${embeddings_dir}"

@@ -45,7 +45,7 @@ def mainh(cfg : DictConfig) -> None:
     if cfg.select == "baseline":
          baseline(cfg.ds, cfg.iterations, cfg.epochs, cfg.batch_size, cfg.training_mode)
     else:
-        unsupervised_filter(cfg.ds, cfg.select, cfg.filter, cfg.n_1, cfg.n_2, cfg.embs, cfg.iterations, cfg.epochs, cfg.batch_size, cfg.training_mode, cfg.mode)
+        unsupervised_filter(cfg.ds, cfg.select, cfg.filter, cfg.n_1, cfg.n_2, cfg.embs, cfg.iterations, cfg.epochs, cfg.batch_size, cfg.training_mode, cfg.mode, scratch_dir=cfg.scratch_dir)
 
 def generate_run_id():
     return str(uuid.uuid4())
@@ -128,23 +128,24 @@ def baseline(dataset_name, iterations, epochs, batch_size, training_mode):
                       results_dict = results.results_dict)
 
 
-def unsupervised_filter(dataset_name : str, 
-                        select : str, 
-                        filter : str, 
-                        n_1 : int, 
-                        n_2 : int, 
+def unsupervised_filter(dataset_name : str,
+                        select : str,
+                        filter : str,
+                        n_1 : int,
+                        n_2 : int,
                         embs : str,
                         iterations: int,
                         epochs : int,
                         batch_size : int,
                         training_mode,
                         mode,
-                        clear_dst = True):
+                        clear_dst = True,
+                        scratch_dir: str = None):
     # ---------- config ----------
-    
+
     run_set_name = generate_run_id() + "_" + dataset_name + "_subset"
     SRC_ROOT  = Path(f"{os.getcwd()}/datasets/{dataset_name}")  # dataset with train/val (and optionally test) subfolders
-    DST_ROOT  = Path(f"{os.getcwd()}/datasets/{run_set_name}")  # output mini-dataset path
+    DST_ROOT  = Path(scratch_dir) / run_set_name  # output mini-dataset path (scratch on cluster)
     EMBS_PATH = Path(f"{os.getcwd()}/datasets/{dataset_name}/{embs}_embs")
     
     

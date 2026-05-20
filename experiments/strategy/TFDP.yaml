@@ -1,0 +1,11 @@
+_target_: subsampling.strategies.student_TFDP
+
+client_subsample_names: null # Filled by student strategy
+
+image_folder_path: "${dataset.image_path}"
+image_labels_path: "${dataset.bank_path}/labels_${student}_w_conf"
+imgExtension: null #To be filled
+student_image_label_path: "${dataset.bank_path}/labels_${student}_w_conf"
+
+n: ${n_samples}
+name: "TFDP"
