@@ -175,6 +175,129 @@ def thresholding_least_confidence(
 
     return images_to_label, flag
 
+
+
+
+def teacher_maximum_entropy(
+    image_folder_path:str,
+    student_image_label_path:str,
+    n: int = DEFAULT_SUB_SAMPLE,
+    aggregation_function: str = "sum",
+    **kwargs,     
+)->list:
+    
+    path_list, _ = list_files_without_extensions(image_folder_path)
+    client_subsample_names = path_list
+
+    if len(client_subsample_names) < n:
+        raise SamplingException("The teacher can only select at most all the images sent by the student.")
+    elif len(client_subsample_names) == n:
+        return client_subsample_names
+
+    entropies = np.zeros(len(client_subsample_names))
+    for idx, subsample_name in enumerate(client_subsample_names):
+        with open(os.path.join(student_image_label_path, subsample_name + '.txt'), "r") as f:
+            lines = f.readlines()
+            if lines:
+                image_confidences = np.array([float(line.strip().split()[5]) for line in lines])
+                image_entropies = -image_confidences*np.log(image_confidences)
+                # If the file is not empty, compute the image confidence score
+                if aggregation_function == "max":
+                    img_entropy = np.max(image_entropies)
+                elif aggregation_function == "min":
+                    img_entropy = np.min(image_entropies)
+                elif aggregation_function == "mean":
+                    img_entropy = np.mean(image_entropies)
+                elif aggregation_function == "sum":
+                    img_entropy = np.sum(image_entropies)
+                else:
+                    raise SamplingException(
+                        f"You must select a valid aggregation function"
+                    )
+                entropies[idx] = img_entropy
+    
+    idx_to_keep = np.sort(np.argsort(-entropies)[:n])
+
+    filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
+
+    return filtered_subsample_names
+
+
+
+
+def student_TFDP(
+    image_folder_path:str,
+    student_image_label_path:str,
+    n: int = DEFAULT_SUB_SAMPLE,
+    **kwargs,
+) -> list:
+    
+    flag = 0
+
+    path_list, _ = list_files_without_extensions(image_folder_path)
+    client_subsample_names = path_list
+    if len(client_subsample_names) < n:
+        raise SamplingException("The teacher can only select at most all the images sent by the student.")
+    elif len(client_subsample_names) == n:
+        return client_subsample_names
+
+    
+    scores = np.zeros(len(client_subsample_names))
+    for idx, subsample_name in enumerate(client_subsample_names):
+        with open(os.path.join(student_image_label_path, subsample_name + '.txt'), "r") as f:
+            lines = f.readlines()
+
+        if lines:
+            # Vectorized calculation for boxes_shapes, boxes_perimeters, and boxes_areas
+            boxes_shapes = np.array([list(map(float, line.strip().split()[3:5])) for line in lines])
+            widths, heights = boxes_shapes[:, 0], boxes_shapes[:, 1]
+            boxes_areas = widths * heights
+            boxes_perimeters = 2 * (widths + heights)
+            
+            # Using vectorized operations to calculate the score
+            score = np.sum(boxes_perimeters / np.sqrt(boxes_areas)) / (2 * np.sqrt(np.pi))
+            scores[idx] = score
+    
+    idx_to_keep = np.sort(np.argsort(-scores)[:n])
+    filtered_subsample_names = [client_subsample_names[int(i)] for i in idx_to_keep]
+
+    return filtered_subsample_names, flag
+
+
+
+
+def student_moderate_coreset(
+    image_folder_path:str,
+    embeddings_paths:str,
+    n:int = DEFAULT_SUB_SAMPLE,
+    **kwargs
+):  
+    flag = 0
+    client_subsample_names, _ = list_files_without_extensions(image_folder_path)
+
+    embeddings = torch.stack([torch.load(os.path.join(embeddings_paths, embedding_file + '_embedding.pt'), map_location='cpu') for embedding_file in client_subsample_names])
+    embeddings_center = embeddings.mean(dim=0)
+
+    distances_to_center = torch.norm(embeddings - embeddings_center, dim=1)
+
+    median_distance = torch.median(distances_to_center)
+
+    diffs_to_median = torch.abs(distances_to_center - median_distance)
+    
+    # Get indices of the n smallest absolute differences
+    _, min_indices = torch.topk(-diffs_to_median, n)  # Negative for smallest values
+
+    # Create binary mask
+    mask = torch.zeros_like(distances_to_center, dtype=torch.bool)
+    mask[min_indices] = True
+
+    filtered_subsample_names = list(np.array(client_subsample_names)[mask])
+
+    return filtered_subsample_names, flag
+
+
+
+
 def thresholding_top_confidence(
     image_labels_path: str,
     n: int = DEFAULT_SUB_SAMPLE,
